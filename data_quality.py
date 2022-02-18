@@ -49,14 +49,3 @@ options = st.sidebar.radio("Select Task", sides)
 
 if options == 'Quality Check':
     st.subheader("Welcome to Data Quality Exploration")
-
-    x1 = X_projected[:,0]
-    x2 = X_projected[:,1]
-
-    fig = plt.figure()
-    plt.scatter(x1, x2, c=y, alpha=0.8, cmap="viridis")
-    plt.xlabel("PC1")
-    plt.ylabel("PC2")
-    plt.colorbar()
-
-    st.pyplot(fig)
