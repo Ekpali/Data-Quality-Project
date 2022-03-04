@@ -9,7 +9,7 @@ st.title('Data Quality Tool')
 def file_uploader():
     ''' This function uploads dataset into the system'''
 
-    selected_file = st.file_uploader("", type=["xlsx", "csv", "txt"], accept_multiple_files=False)
+    selected_file = st.sidebar.file_uploader("", type=["xlsx", "csv", "txt"], accept_multiple_files=False)
     
     if selected_file is not None:
         
@@ -20,10 +20,10 @@ def file_uploader():
         elif "txt" in selected_file.name:
             df = pd.read_fwf(selected_file)
         
-        st.success("upload successful")
+        st.sidebar.success("upload successful")
             
     else:
-        st.info("Please upload a valid xlsx, csv or txt file")
+        st.sidebar.info("Please upload a valid xlsx, csv or txt file")
         st.stop()
     
     return df 
