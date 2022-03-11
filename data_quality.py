@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 from collections import Counter
-from ipywidgets import widgets
+import os
 
 st.set_page_config(layout = "wide")
 
@@ -22,9 +22,10 @@ if st.sidebar.button("Start/Restart Session"):
 selected_file = st.sidebar.file_uploader("Please upload file", type=["xlsx", "csv", "txt"], accept_multiple_files=False) 
 
 @st.cache(suppress_st_warning=True, allow_output_mutation=True)
-def file_uploader():    
-    ''' This function uploads dataset into the system'''
+def file_uploader():
     
+    ''' This function uploads dataset into the system'''
+      
     if selected_file is not None:
         
         if "csv" in selected_file.name:
@@ -46,31 +47,52 @@ dataset = file_uploader()
 
 #############################################################################################################################################
 ## Main functions (contains a sidebar of the compatible functions) ###########
-main_sides = ["Data Summary", "Single Column Analysis", "Multiple Column Analysis", "General Analysis"]
+main_sides = ["Data Summary", "Single Column Analysis", "Multiple Column Analysis"]
 options = st.sidebar.radio("Select Task", main_sides)
 
 
 ########################################################################################
-## DQ Summary #################
+# DQ Summary #################
 if options == "Data Summary":
-    # download_report = st.empty()
 
-    profile = dataset.profile_report()
-    # profile = ProfileReport(dataset, explorative=True, minimal=False)
+    ## start progress bar
+    prog = st.progress(0)  
+    r1, r2, r3, r4 = st.columns([2,1,1,1])
+    with r4:
+        download_report = st.empty()
+    prof_succ = st.empty()
+
+    st.subheader('Data Summary Profile')
+
+    ## Profiling function
+    @st.cache(suppress_st_warning=True, allow_output_mutation=True)
+    def profile_reporter(dataset):
+        return dataset.profile_report()
+
+    profile = profile_reporter(dataset)
     st_profile_report(profile)
-    #components.html(profile, height=1000, width=1050,scrolling=True)
 
-    # with download_report.container():
-    #     if st.button("Download Report"):
-    #         #profile.to_file("Data_profile.html")
+    ## end progress bar
+    prog.progress(100)
+
+    ## Download profile report
+    with download_report.container():
+        if st.button("Download Report"):
+            profile.to_file("Data Summary Profile.html")
+            cwd = os.getcwd()
+            prof_succ.success('Report saved to ' + cwd)
+
 
 #################################################################################################################################
 # Single Column Analysis ######
 if options == 'Single Column Analysis':
     st.subheader("Single Column Analysis")
 
+    ## start progress bar
+    prog = st.progress(0) 
+
     ## Dropdown list of type of analysis
-    Single_ops = ["Missing Values", "Data Type", "Outliers", "Duplicates"]
+    Single_ops = ["Missing Values", "Data Type", "Outliers", "Duplicates", "Distributions"]
     ops = st.selectbox("Type of analysis", Single_ops)
 
     ## Container to hold dropdown list of each column
@@ -81,6 +103,17 @@ if options == 'Single Column Analysis':
         column_list = list(dataset)
         column_name = st.selectbox("Select column to analyse", column_list)
 
+    ## end progress bar
+    prog.progress(100)
+
+    ## remove column globally
+    if st.button("Delete column"):
+        dataset.drop(columns=[str(column_name)], axis=1, inplace=True)
+        st.success('{} successfully removed'.format(str(column_name)))
+        
+        with col_holder.container():
+            column_list = list(dataset)
+            column_name = st.selectbox("Select column to analyse", column_list)
 
     #############################################################
     ## Missing values analysis ##################################
@@ -198,12 +231,11 @@ if options == 'Single Column Analysis':
         ### Columns to hold barplot and remedy
         bar, rem = st.columns(2)
 
-
+        # column to hold datatype info and barplot
         with bar:
             ##### check whether column contains multiple datatypes
             if no_dtypes == 1:
                 st.info("All enteries in this column are of DataType: {}".format(str(set(list_dtypes))[1:-1]))
-
 
             else:
                 st.info("The column has multiple datatypes: {}".format(str(set(list_dtypes))[1:-1]))
@@ -220,24 +252,19 @@ if options == 'Single Column Analysis':
         
         #with rem:
 
-
-
-
-                
-
-
 #####################################################################################################################################
 # Multiple Column Analysis #####
 if options == 'Multiple Column Analysis':
     st.subheader("Multiple Column Analysis")
 
-    multi_ops = ["Missing values", "Correlations", "Clusters and Outliers", "Summaries and Sketches"]
+    ## start progress bar
+    prog = st.progress(0)
+
+    multi_ops = ["Missing values", "Clusters and Outliers", "Transpose", "Anomaly Detection"]
     ops = st.selectbox("Select Analysis", multi_ops)
 
-##################################################################################
-# General Analysis #####
-if options == 'General Analysis':
-    st.subheader("General Analysis")
+    ## end progress bar
+    prog.progress(100)
 
 
 ####################################################################################################################################
