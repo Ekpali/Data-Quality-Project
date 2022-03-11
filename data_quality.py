@@ -55,14 +55,14 @@ options = st.sidebar.radio("Select Task", main_sides)
 # DQ Summary #################
 if options == "Data Summary":
 
+    st.subheader('Data Summary Profile')
+
     ## start progress bar
     prog = st.progress(0)  
     r1, r2, r3, r4 = st.columns([2,1,1,1])
     with r4:
         download_report = st.empty()
     prof_succ = st.empty()
-
-    st.subheader('Data Summary Profile')
 
     ## Profiling function
     @st.cache(suppress_st_warning=True, allow_output_mutation=True)
