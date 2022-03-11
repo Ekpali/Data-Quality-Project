@@ -1,13 +1,20 @@
+from textwrap import fill
 import streamlit as st
 from streamlit import caching
+from pandas_profiling import ProfileReport
+from streamlit_pandas_profiling import st_profile_report
+import streamlit.components.v1 as components
 import matplotlib.pyplot as plt 
 import pandas as pd
 import numpy as np
+from collections import Counter
+from ipywidgets import widgets
 
 st.set_page_config(layout = "wide")
 
 st.title('Data Quality Tool')
 
+# Clear cache to start fresh session
 if st.sidebar.button("Start/Restart Session"):
     st.legacy_caching.caching.clear_cache()
 
@@ -37,30 +44,39 @@ def file_uploader():
 dataset = file_uploader()
 
 
-########################################################################################################################################
+#############################################################################################################################################
 ## Main functions (contains a sidebar of the compatible functions) ###########
-main_sides = ["Data Quality Summary", "Single Column Analysis", "Multiple Column Analysis", "General Analysis"]
+main_sides = ["Data Summary", "Single Column Analysis", "Multiple Column Analysis", "General Analysis"]
 options = st.sidebar.radio("Select Task", main_sides)
 
 
 ########################################################################################
 ## DQ Summary #################
-if options == "Data Quality Summary":
-    st.subheader("Summary of Data Quality")
+if options == "Data Summary":
+    # download_report = st.empty()
 
+    profile = dataset.profile_report()
+    # profile = ProfileReport(dataset, explorative=True, minimal=False)
+    st_profile_report(profile)
+    #components.html(profile, height=1000, width=1050,scrolling=True)
 
-########################################################################################
+    # with download_report.container():
+    #     if st.button("Download Report"):
+    #         #profile.to_file("Data_profile.html")
+
+#################################################################################################################################
 # Single Column Analysis ######
 if options == 'Single Column Analysis':
     st.subheader("Single Column Analysis")
 
     ## Dropdown list of type of analysis
-    Single_ops = ["Overview", "Missing Values", "Data Type", "Outliers", "Duplicates"]
+    Single_ops = ["Missing Values", "Data Type", "Outliers", "Duplicates"]
     ops = st.selectbox("Type of analysis", Single_ops)
 
-    ## Dropdown list of each column
+    ## Container to hold dropdown list of each column
     col_holder = st.empty()
 
+    ## Insert column list into container
     with col_holder.container():
         column_list = list(dataset)
         column_name = st.selectbox("Select column to analyse", column_list)
@@ -120,7 +136,7 @@ if options == 'Single Column Analysis':
                     with pie_holder.container():
                         missing_df = compute_missing(dataset, column_name)
                         missing_values_plotter(list(missing_df.values()), labels=list(missing_df.keys()))
-                        st.success('Null values successfully removed')
+                    st.success('Null values successfully removed')
 
                 #### replace missing values with mean    
                 if st.button("Replace null values with mean"):
@@ -131,7 +147,7 @@ if options == 'Single Column Analysis':
                         with pie_holder.container():
                             missing_df = compute_missing(dataset, column_name)
                             missing_values_plotter(list(missing_df.values()), labels=list(missing_df.keys()))
-                            st.success('Null values successfully replaced')
+                        st.success('Null values successfully replaced')
 
                     else:
                         st.warning("Numeric column only")
@@ -143,7 +159,8 @@ if options == 'Single Column Analysis':
                 #### remove column
                 if st.button("Remove column"):
                     dataset.drop(columns=[str(column_name)], axis=1, inplace=True)
-                    st.write('{} successfully removed'.format(str(column_name)))
+                    st.success('{} successfully removed'.format(str(column_name)))
+                    
 
                     with col_holder.container():
                         column_list = list(dataset)
@@ -152,6 +169,7 @@ if options == 'Single Column Analysis':
                     with pie_holder.container():
                             missing_df = compute_missing(dataset, column_name)
                             missing_values_plotter(list(missing_df.values()), labels=list(missing_df.keys()))
+                            
                     
                     
                         
@@ -159,7 +177,56 @@ if options == 'Single Column Analysis':
             with repair:
                 st.info('There are no missing values in the column')
 
-##################################################################################
+    ##############################################################################
+    ## Data type analysis
+    if ops == "Data Type":
+        st.subheader("Entry Type Explorer")
+
+        list_dtypes = []
+        for element in dataset[column_name]:
+            if isinstance(element, int):
+                list_dtypes.append('int')
+            elif isinstance(element, float):
+                list_dtypes.append('float')
+            elif isinstance(element, str):
+                list_dtypes.append('str')
+
+        uniq_list_dtypes = Counter(list_dtypes).keys()
+        uniq_counts = Counter(list_dtypes).values()
+        no_dtypes = len(uniq_list_dtypes)
+
+        ### Columns to hold barplot and remedy
+        bar, rem = st.columns(2)
+
+
+        with bar:
+            ##### check whether column contains multiple datatypes
+            if no_dtypes == 1:
+                st.info("All enteries in this column are of DataType: {}".format(str(set(list_dtypes))[1:-1]))
+
+
+            else:
+                st.info("The column has multiple datatypes: {}".format(str(set(list_dtypes))[1:-1]))
+                
+                def barplotter(x, y):
+                    fig = plt.figure()
+                    plt.bar(x, y)
+                    plt.xlabel('datatypes')
+                    plt.ylabel('frequency')
+                    
+                    return st.pyplot(fig)
+
+                barplotter(uniq_list_dtypes, uniq_counts)
+        
+        #with rem:
+
+
+
+
+                
+
+
+#####################################################################################################################################
 # Multiple Column Analysis #####
 if options == 'Multiple Column Analysis':
     st.subheader("Multiple Column Analysis")
@@ -171,3 +238,24 @@ if options == 'Multiple Column Analysis':
 # General Analysis #####
 if options == 'General Analysis':
     st.subheader("General Analysis")
+
+
+####################################################################################################################################
+# Download dataset after processing
+data = dataset.to_csv().encode('utf-8')
+st.sidebar.header('')
+st.sidebar.header('')
+st.sidebar.header('')
+st.sidebar.header('')
+st.sidebar.header('')
+st.sidebar.header('')
+st.sidebar.header('')
+st.sidebar.header('')
+
+st.sidebar.download_button(
+    label="Download data as CSV ⬇️",
+    data=data,
+    file_name='cleaned_data.csv',
+    mime='text/csv',
+)
+
