@@ -143,7 +143,9 @@ if options == 'Single Column Analysis':
             '''plot missing values with pie chart'''
             fig = plt.figure()
             plt.title(str(column_name))
-            plt.pie(y, labels=labels, autopct=lambda p:f'{p:.2f}% ({p*sum(list(missing_df.values()))/100 :.0f})', colors=['red', 'green'] )
+            plt.pie(y, labels=labels,
+                        autopct=lambda p:f'{p:.2f}% ({p*sum(list(missing_df.values()))/100 :.0f})', 
+                        colors=['red', 'green'] )
             plt.axis('equal')
             plt.legend(loc='lower right')
 
@@ -309,6 +311,9 @@ if options == 'Single Column Analysis':
                 with bar_holder.container():
                     barplotter(uniq_list_dtypes, uniq_counts)                
 
+    if ops == "Outliers":
+        st.subheader("Outlier Identification and removal")
+
 #####################################################################################################################################
 # Multiple Column Analysis #####
 if options == 'Multiple Column Analysis':
@@ -348,3 +353,5 @@ st.sidebar.download_button(
     mime='text/csv',
 )
 
+if __name__ == '__main__':
+    ...
