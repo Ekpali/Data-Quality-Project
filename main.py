@@ -9,6 +9,8 @@ import pandas as pd
 import numpy as np
 from collections import Counter
 import os
+from sklearn.impute import KNNImputer
+from sklearn.preprocessing import MinMaxScaler
 
 st.set_page_config(layout = "wide")
 
@@ -21,7 +23,7 @@ if st.sidebar.button("Start/Restart Session"):
 # Import dataset in either of the three accepted formats xlsx, csv or txt
 selected_file = st.sidebar.file_uploader("Please upload file", type=["xlsx", "csv", "txt"], accept_multiple_files=False) 
 
-@st.cache(suppress_st_warning=True, allow_output_mutation=True)
+@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
 def file_uploader():
     
     ''' This function uploads dataset into the system'''
@@ -69,7 +71,12 @@ if options == "Data Summary":
     def profile_reporter(dataset):
         return dataset.profile_report()
 
+    prog.progress(10)
+
     profile = profile_reporter(dataset)
+
+    prog.progress(30)
+
     st_profile_report(profile)
 
     ## end progress bar
@@ -92,7 +99,7 @@ if options == 'Single Column Analysis':
     prog = st.progress(0) 
 
     ## Dropdown list of type of analysis
-    Single_ops = ["Missing Values", "Data Type", "Outliers", "Duplicates", "Distributions"]
+    Single_ops = ["Missing Values", "Entry Type", "Outliers", "Duplicates", "Distributions"]
     ops = st.selectbox("Type of analysis", Single_ops)
 
     ## Container to hold dropdown list of each column
@@ -142,7 +149,6 @@ if options == 'Single Column Analysis':
 
             return st.pyplot(fig)
 
-
         ### Preprocessing data exploration 
         pie, repair = st.columns(2)
 
@@ -180,14 +186,36 @@ if options == 'Single Column Analysis':
                         with pie_holder.container():
                             missing_df = compute_missing(dataset, column_name)
                             missing_values_plotter(list(missing_df.values()), labels=list(missing_df.keys()))
-                        st.success('Null values successfully replaced')
+                        st.success('Null values successfully replaced with mean values')
 
                     else:
                         st.warning("Numeric column only")
 
                 #### replace null values with nearest neighbours
                 if st.button("Replace null values with nearest neighbour"):
-                    st.container()
+                    if dataset[column_name].dtype == "int64" or dataset[column_name].dtype == "float64":
+                        int_data = dataset.select_dtypes(include=['int64', 'float64'])
+
+                        #Normalise data
+                        scaler = MinMaxScaler()
+                        df_int = pd.DataFrame(scaler.fit_transform(int_data), columns = int_data.columns)
+
+                        # Inpute values
+                        imputer = KNNImputer(n_neighbors=15)
+                        df_new = pd.DataFrame(imputer.fit_transform(df_int),columns = df_int.columns)
+
+                        df_new[int_data.columns] = scaler.inverse_transform(df_new[int_data.columns])
+
+                        dataset[int_data.columns] = df_new[int_data.columns]
+
+                        with pie_holder.container():
+                            missing_df = compute_missing(dataset, column_name)
+                            missing_values_plotter(list(missing_df.values()), labels=list(missing_df.keys()))
+                        st.success('Null values successfully replaced with nearest neighbours')
+
+
+                    else:
+                        st.warning("Numeric column only")
 
                 #### remove column
                 if st.button("Remove column"):
@@ -202,55 +230,84 @@ if options == 'Single Column Analysis':
                     with pie_holder.container():
                             missing_df = compute_missing(dataset, column_name)
                             missing_values_plotter(list(missing_df.values()), labels=list(missing_df.keys()))
-                            
-                    
-                    
-                        
+                                                
         else:
             with repair:
                 st.info('There are no missing values in the column')
 
     ##############################################################################
     ## Data type analysis
-    if ops == "Data Type":
+    if ops == "Entry Type":
         st.subheader("Entry Type Explorer")
 
-        list_dtypes = []
-        for element in dataset[column_name]:
-            if isinstance(element, int):
-                list_dtypes.append('int')
-            elif isinstance(element, float):
-                list_dtypes.append('float')
-            elif isinstance(element, str):
-                list_dtypes.append('str')
+        def float_digit(n: str) -> bool:
+            try:
+                float(n)
+                return True
+            except ValueError:
+                return False
 
-        uniq_list_dtypes = Counter(list_dtypes).keys()
-        uniq_counts = Counter(list_dtypes).values()
-        no_dtypes = len(uniq_list_dtypes)
+        ### function to determine data types and indexes 
+        def compute_datatype(dataset):
+            '''This function determines datatypes and indexes'''
+            global list_dtypes, digit_index, str_index
+
+            ### Lists that hold data types and indexes
+            list_dtypes = []
+            digit_index = []
+            str_index = []
+
+            for index, element in enumerate(dataset[column_name]):
+                if (str(element).isnumeric()) or float_digit(str(element)) == True:
+                    list_dtypes.append('numeric')
+                    digit_index.append(index)
+                elif (str(element).isalpha()):
+                    list_dtypes.append('string')
+                    str_index.append(index)
+
+            uniq_list_dtypes = Counter(list_dtypes).keys()
+            uniq_counts = Counter(list_dtypes).values()
+
+            return uniq_list_dtypes, uniq_counts
+
+        ### funtion to make barplot
+        def barplotter(x, y):
+            fig = plt.figure()
+            plt.bar(x, y, width = 0.5)
+            plt.xlabel('entry types')
+            plt.ylabel('frequency')
+            
+            return st.pyplot(fig)
 
         ### Columns to hold barplot and remedy
         bar, rem = st.columns(2)
 
-        # column to hold datatype info and barplot
+        ### column to hold datatype info and barplot
         with bar:
-            ##### check whether column contains multiple datatypes
-            if no_dtypes == 1:
-                st.info("All enteries in this column are of DataType: {}".format(str(set(list_dtypes))[1:-1]))
-
-            else:
-                st.info("The column has multiple datatypes: {}".format(str(set(list_dtypes))[1:-1]))
-                
-                def barplotter(x, y):
-                    fig = plt.figure()
-                    plt.bar(x, y)
-                    plt.xlabel('datatypes')
-                    plt.ylabel('frequency')
-                    
-                    return st.pyplot(fig)
-
+            bar_holder = st.empty()
+            uniq_list_dtypes, uniq_counts = compute_datatype(dataset)
+           
+            with bar_holder.container():
                 barplotter(uniq_list_dtypes, uniq_counts)
         
-        #with rem:
+        ### column holding remedy buttons 
+        with rem:
+            st.write('Perform repair action')
+            if st.button('Delete numeric entries'):
+                dataset = dataset.iloc[str_index]
+                dataset.reset_index()
+                uniq_list_dtypes, uniq_counts = compute_datatype(dataset)
+                st.success('numeric enteries removed')
+                with bar_holder.container():
+                    barplotter(uniq_list_dtypes, uniq_counts)
+
+            if st.button('Delete string entries'):
+                dataset = dataset.iloc[digit_index]
+                dataset.reset_index()
+                uniq_list_dtypes, uniq_counts = compute_datatype(dataset)
+                st.success('string entries removed')
+                with bar_holder.container():
+                    barplotter(uniq_list_dtypes, uniq_counts)                
 
 #####################################################################################################################################
 # Multiple Column Analysis #####
@@ -263,13 +320,18 @@ if options == 'Multiple Column Analysis':
     multi_ops = ["Missing values", "Clusters and Outliers", "Transpose", "Anomaly Detection"]
     ops = st.selectbox("Select Analysis", multi_ops)
 
+    if multi_ops == "Missing Values":
+        dataset.isna().any()
+
+        dataset.isna().sum()
+
     ## end progress bar
     prog.progress(100)
 
 
 ####################################################################################################################################
 # Download dataset after processing
-data = dataset.to_csv().encode('utf-8')
+data = dataset.to_csv(index=False).encode('utf-8')
 st.sidebar.header('')
 st.sidebar.header('')
 st.sidebar.header('')
