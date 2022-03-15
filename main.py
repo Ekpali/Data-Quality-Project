@@ -1,4 +1,3 @@
-from textwrap import fill
 import streamlit as st
 from streamlit import caching
 from pandas_profiling import ProfileReport
@@ -11,6 +10,13 @@ from collections import Counter
 import os
 from sklearn.impute import KNNImputer
 from sklearn.preprocessing import MinMaxScaler
+import plotly.express as px
+import plotly.graph_objects as go
+
+# outliers
+from numpy import mean
+from numpy import std
+from scipy.stats import shapiro
 
 st.set_page_config(layout = "wide")
 
@@ -91,7 +97,8 @@ if options == "Data Summary":
 
 
 #################################################################################################################################
-# Single Column Analysis ######
+#############################################    Single Column Analysis   #######################################################
+#################################################################################################################################
 if options == 'Single Column Analysis':
     st.subheader("Single Column Analysis")
 
@@ -99,7 +106,7 @@ if options == 'Single Column Analysis':
     prog = st.progress(0) 
 
     ## Dropdown list of type of analysis
-    Single_ops = ["Missing Values", "Entry Type", "Outliers", "Duplicates", "Distributions"]
+    Single_ops = ["Missing Values", "Outliers", "Entry Type", "Duplicates", "Distributions"]
     ops = st.selectbox("Type of analysis", Single_ops)
 
     ## Container to hold dropdown list of each column
@@ -113,17 +120,20 @@ if options == 'Single Column Analysis':
     ## end progress bar
     prog.progress(100)
 
-    ## remove column globally
-    if st.button("Delete column"):
-        dataset.drop(columns=[str(column_name)], axis=1, inplace=True)
-        st.success('{} successfully removed'.format(str(column_name)))
-        
-        with col_holder.container():
-            column_list = list(dataset)
-            column_name = st.selectbox("Select column to analyse", column_list)
+    #define global delete button
+    def delete_button(column_name):
+        '''Delete column at any point'''
+        ## remove column globally
+        if st.button("Delete column"):
+            dataset.drop(columns=[str(column_name)], axis=1, inplace=True)
+            st.success('{} successfully removed'.format(str(column_name)))
+            
+            with col_holder.container():
+                column_list = list(dataset)
+                column_name = st.selectbox("Select column to analyse", column_list)
 
-    #############################################################
-    ## Missing values analysis ##################################
+    ###############################################################################
+    ## Missing values analysis ###################################################
     if ops == "Missing Values":
         st.subheader("Missing Values Identification and Repair")
         
@@ -136,23 +146,26 @@ if options == 'Single Column Analysis':
             missing_df = {"Null":missing_values, "Not null":comp_values}
 
             return missing_df
-
+        ### compute missing
         missing_df = compute_missing(dataset, column_name)
 
-        def missing_values_plotter(y, labels):
+        def missing_values_plotter(val, k):
             '''plot missing values with pie chart'''
-            fig = plt.figure()
-            plt.title(str(column_name))
-            plt.pie(y, labels=labels,
-                        autopct=lambda p:f'{p:.2f}% ({p*sum(list(missing_df.values()))/100 :.0f})', 
-                        colors=['red', 'green'] )
-            plt.axis('equal')
-            plt.legend(loc='lower right')
+            #st.write(str(column_name))
+            fig = go.Figure(data=[go.Pie(labels=k, values=val, textinfo='value+percent',
+                             insidetextorientation='auto',rotation=90
+                            )])
 
-            return st.pyplot(fig)
+            colors = ['red', 'green']
+            fig.update_traces(textfont_size=17,
+                  marker=dict(colors=colors))
+            fig.update_layout(margin=dict(t=30, b=0, l=0, r=80), title_text='Null values in {} '.format(str(column_name)), title_x=0.25)
+            fig['layout']['title']['font'] = dict(size=20)
+            
+            return st.plotly_chart(fig, use_container_width=True)
 
         ### Preprocessing data exploration 
-        pie, repair = st.columns(2)
+        pie, repair = st.columns([2,1])
 
         ### Column with placeholder for pie chart
         with pie:
@@ -160,15 +173,17 @@ if options == 'Single Column Analysis':
             pie_holder = st.empty()
             
             with pie_holder.container():
-                missing_values_plotter(list(missing_df.values()), labels=list(missing_df.keys()))
+                missing_values_plotter(list(missing_df.values()), list(missing_df.keys()))
 
         ## Check whether columns contain missing values
         if dataset[column_name].isnull().sum() != 0:
 
             ### Column with missing values repair options
             with repair:
+                st.header('')
                 st.markdown('Perform Repair Action')
-                #### remove missing 
+
+                #### remove missing ###############################################################
                 if st.button('Remove rows with null values'):        
                     missing_index = dataset[dataset[column_name].isnull()].index.tolist()
                     dataset.drop(missing_index, inplace=True)
@@ -176,10 +191,10 @@ if options == 'Single Column Analysis':
                 
                     with pie_holder.container():
                         missing_df = compute_missing(dataset, column_name)
-                        missing_values_plotter(list(missing_df.values()), labels=list(missing_df.keys()))
+                        missing_values_plotter(list(missing_df.values()), list(missing_df.keys()))
                     st.success('Null values successfully removed')
 
-                #### replace missing values with mean    
+                #### replace missing values with mean  ############################################  
                 if st.button("Replace null values with mean"):
                     if dataset[column_name].dtype == "int64" or dataset[column_name].dtype == "float64":
                         missing_index = dataset[dataset[column_name].isnull()].index.tolist()
@@ -187,13 +202,13 @@ if options == 'Single Column Analysis':
 
                         with pie_holder.container():
                             missing_df = compute_missing(dataset, column_name)
-                            missing_values_plotter(list(missing_df.values()), labels=list(missing_df.keys()))
+                            missing_values_plotter(list(missing_df.values()), list(missing_df.keys()))
                         st.success('Null values successfully replaced with mean values')
 
                     else:
                         st.warning("Numeric column only")
 
-                #### replace null values with nearest neighbours
+                #### replace null values with nearest neighbours #####################################
                 if st.button("Replace null values with nearest neighbour"):
                     if dataset[column_name].dtype == "int64" or dataset[column_name].dtype == "float64":
                         int_data = dataset.select_dtypes(include=['int64', 'float64'])
@@ -212,18 +227,17 @@ if options == 'Single Column Analysis':
 
                         with pie_holder.container():
                             missing_df = compute_missing(dataset, column_name)
-                            missing_values_plotter(list(missing_df.values()), labels=list(missing_df.keys()))
+                            missing_values_plotter(list(missing_df.values()), list(missing_df.keys()))
                         st.success('Null values successfully replaced with nearest neighbours')
 
 
                     else:
                         st.warning("Numeric column only")
 
-                #### remove column
+                #### remove column ##############################################
                 if st.button("Remove column"):
                     dataset.drop(columns=[str(column_name)], axis=1, inplace=True)
                     st.success('{} successfully removed'.format(str(column_name)))
-                    
 
                     with col_holder.container():
                         column_list = list(dataset)
@@ -231,14 +245,26 @@ if options == 'Single Column Analysis':
 
                     with pie_holder.container():
                             missing_df = compute_missing(dataset, column_name)
-                            missing_values_plotter(list(missing_df.values()), labels=list(missing_df.keys()))
+                            missing_values_plotter(list(missing_df.values()), list(missing_df.keys()))
                                                 
         else:
             with repair:
                 st.info('There are no missing values in the column')
+                #### remove column ##############################################
+                if st.button("Remove column"):
+                    dataset.drop(columns=[str(column_name)], axis=1, inplace=True)
+                    st.success('{} successfully removed'.format(str(column_name)))
+
+                    with col_holder.container():
+                        column_list = list(dataset)
+                        column_name = st.selectbox("Select column to analyse", column_list)
+
+                    with pie_holder.container():
+                            missing_df = compute_missing(dataset, column_name)
+                            missing_values_plotter(list(missing_df.values()), list(missing_df.keys()))
 
     ##############################################################################
-    ## Data type analysis
+    ## Data type analysis #######################################################
     if ops == "Entry Type":
         st.subheader("Entry Type Explorer")
 
@@ -252,12 +278,13 @@ if options == 'Single Column Analysis':
         ### function to determine data types and indexes 
         def compute_datatype(dataset):
             '''This function determines datatypes and indexes'''
-            global list_dtypes, digit_index, str_index
+            global list_dtypes, digit_index, str_index, other_index
 
             ### Lists that hold data types and indexes
             list_dtypes = []
             digit_index = []
             str_index = []
+            other_index = []
 
             for index, element in enumerate(dataset[column_name]):
                 if (str(element).isnumeric()) or float_digit(str(element)) == True:
@@ -266,6 +293,9 @@ if options == 'Single Column Analysis':
                 elif (str(element).isalpha()):
                     list_dtypes.append('string')
                     str_index.append(index)
+                else:
+                    list_dtypes.append('other')
+                    other_index.append(index)
 
             uniq_list_dtypes = Counter(list_dtypes).keys()
             uniq_counts = Counter(list_dtypes).values()
@@ -273,16 +303,17 @@ if options == 'Single Column Analysis':
             return uniq_list_dtypes, uniq_counts
 
         ### funtion to make barplot
-        def barplotter(x, y):
-            fig = plt.figure()
-            plt.bar(x, y, width = 0.5)
-            plt.xlabel('entry types')
-            plt.ylabel('frequency')
-            
-            return st.pyplot(fig)
+        def barplotter(list, count):
+            fig = px.bar(x=list, y=count, labels= {'y': 'entry count', 'x': 'entry type'}, 
+                        title='Entry types in {} '.format(str(column_name)))
+            fig.update_layout(margin=dict(t=30, b=0, l=0, r=80), title_x=0.5)
+            #fig.update_traces(textfont_size=30)
+            fig['layout']['title']['font'] = dict(size=20)
+            return st.plotly_chart(fig, use_container_width=True)
+ 
 
         ### Columns to hold barplot and remedy
-        bar, rem = st.columns(2)
+        bar, rem = st.columns([2,1])
 
         ### column to hold datatype info and barplot
         with bar:
@@ -294,9 +325,10 @@ if options == 'Single Column Analysis':
         
         ### column holding remedy buttons 
         with rem:
+            st.subheader('')
             st.write('Perform repair action')
             if st.button('Delete numeric entries'):
-                dataset = dataset.iloc[str_index]
+                dataset.drop(digit_index, inplace=True)
                 dataset.reset_index()
                 uniq_list_dtypes, uniq_counts = compute_datatype(dataset)
                 st.success('numeric enteries removed')
@@ -304,15 +336,137 @@ if options == 'Single Column Analysis':
                     barplotter(uniq_list_dtypes, uniq_counts)
 
             if st.button('Delete string entries'):
-                dataset = dataset.iloc[digit_index]
+                dataset.drop(str_index, inplace=True)
                 dataset.reset_index()
                 uniq_list_dtypes, uniq_counts = compute_datatype(dataset)
                 st.success('string entries removed')
                 with bar_holder.container():
-                    barplotter(uniq_list_dtypes, uniq_counts)                
+                    barplotter(uniq_list_dtypes, uniq_counts)
 
-    if ops == "Outliers":
-        st.subheader("Outlier Identification and removal")
+            if st.button('Delete other entries'):
+                dataset.drop(other_index, inplace=True)
+                dataset.reset_index()
+                uniq_list_dtypes, uniq_counts = compute_datatype(dataset)
+                st.success('string entries removed')
+                with bar_holder.container():
+                    barplotter(uniq_list_dtypes, uniq_counts)                 
+
+    ################################################################################################
+    ## Outlier Ananlysis############################################################################
+    if ops == "Outliers": # codes from https://machinelearningmastery.com/how-to-use-statistics-to-identify-outliers-in-data/ and 
+                           # https://machinelearningmastery.com/a-gentle-introduction-to-normality-tests-in-python/
+        
+        st.subheader("Outlier identification and removal")
+
+        with col_holder.container():
+            column_list = dataset.select_dtypes(include=['int64', 'float64']).columns
+            column_name = st.selectbox("Select column to analyse", column_list)
+            st.info('Showing numeric columns only')
+
+        box, outlier_repair = st.columns([2,1])
+
+        def box_plotter(dataset):
+            '''This function makes a box plot'''
+            fig = px.box(dataset[column_name])
+            fig.update_layout(margin=dict(t=30, b=0, l=0, r=80), title_text='Boxplot of {} '.format(str(column_name)), title_x=0.5)
+
+            fig['layout']['title']['font'] = dict(size=20)
+            
+            return st.plotly_chart(fig, use_container_width=True)
+        
+        ### column holding boxplot
+        with box:
+            box_plt = st.empty()
+
+            with box_plt.container():
+                box_plotter(dataset)
+            
+            #### suggestion area ------------------------
+            st.write('Key statistics')
+            alpha = 0.05
+            stat, p = shapiro(dataset[column_name])
+            out_stat = pd.DataFrame([{'CI':'5%','p-value':p, 'statistic':stat}])
+            st.write(out_stat)
+
+        ### column holding repair methods
+        with outlier_repair:
+            st.subheader('')
+            st.write('Select repair method')
+
+            ##### show dataframe of key values
+            def show_outlier_df(lower, upper):
+                global outliers 
+                outliers = [x for x in dataset[column_name] if x < lower or x > upper]
+                out_df = pd.DataFrame({'No of outliers': len(outliers), 'Lower': lower, 'Upper': upper}, index=[0])
+                st.write(out_df)
+            
+            ##### update boxplot
+            def update_boxplot():
+                with box_plt.container():
+                    box_plotter(dataset)
+
+            ##### print success message
+            def outlier_success_print():
+                if len(outliers) > 0:
+                    st.success('{} removed successfully'.format(len(outliers)))
+
+                else:
+                    st.info('No identified outliers')
+
+            #### show outliers in df, remove outliers and update boxplot
+            def outlier_removal_update(lower, upper):
+                    #show outliers
+                    show_outlier_df(lower, upper)
+                    ##### identify and remove outliers
+                    out_idx = dataset[(dataset[column_name] < lower) | (dataset[column_name] > upper)].index.tolist()
+                    dataset.drop(out_idx, inplace=True)
+                    dataset.reset_index()
+                    ##### update boxplot
+                    update_boxplot()
+                    ##### print
+                    outlier_success_print()
+
+            #### repair using standard deviation
+            if st.button('Standard deviation'):
+
+                ##### calculate summary statistics
+                data_mean, data_std = mean(dataset[column_name]), std(dataset[column_name])
+                ##### identify outliers
+                cut_off = data_std * 3
+                lower, upper = data_mean - cut_off, data_mean + cut_off
+                ##### show results
+                outlier_removal_update(lower, upper)
+                
+
+            #### repair using interquartile range
+            if st.button('Interquartile range'):
+
+                ##### calculate interquartile range
+                q25, q75 = np.percentile(dataset[column_name], 25), np.percentile(dataset[column_name], 75)
+                iqr = q75 - q25
+                ##### calculate the outlier cutoff
+                cut_off = iqr * 1.5
+                lower, upper = q25 - cut_off, q75 + cut_off
+                ##### show results
+                outlier_removal_update(lower, upper)
+
+            #### repair outliers using user inpute
+            with st.expander('User input'):
+                lower = st.number_input("lower bound", min_value=0, step=10)
+                upper = st.number_input("upper bound", min_value=0, step=10)
+
+                if st.button('Execute'):  
+                    ##### show results
+                    outlier_removal_update(lower, upper)
+
+            
+
+            
+
+
+# delete_holder = st.empty()
+# with delete_holder.container():
+#     delete_button(column_name)
 
 #####################################################################################################################################
 # Multiple Column Analysis #####
@@ -353,5 +507,5 @@ st.sidebar.download_button(
     mime='text/csv',
 )
 
-if __name__ == '__main__':
-    ...
+# if __name__ == '__main__':
+#     ...
