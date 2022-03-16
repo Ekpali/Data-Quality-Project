@@ -54,14 +54,13 @@ dataset = file_uploader()
 
 
 #############################################################################################################################################
-## Main functions (contains a sidebar of the compatible functions) ###########
-main_sides = ["Data Summary", "Single Column Analysis", "Multiple Column Analysis"]
-options = st.sidebar.radio("Select Task", main_sides)
+## Main functions (contains a sidebar of the compatible functions) ########### 
+main_options = st.sidebar.radio("Select Task", ["Data Summary", "Single Column Analysis", "Multiple Column Analysis"])
 
 
 ########################################################################################
 # DQ Summary #################
-if options == "Data Summary":
+if main_options == "Data Summary":
 
     st.subheader('Data Summary Profile')
 
@@ -99,15 +98,15 @@ if options == "Data Summary":
 #################################################################################################################################
 #############################################    Single Column Analysis   #######################################################
 #################################################################################################################################
-if options == 'Single Column Analysis':
+if main_options == 'Single Column Analysis':
     st.subheader("Single Column Analysis")
 
     ## start progress bar
     prog = st.progress(0) 
 
     ## Dropdown list of type of analysis
-    Single_ops = ["Missing Values", "Outliers", "Entry Type", "Duplicates", "Distributions"]
-    ops = st.selectbox("Type of analysis", Single_ops)
+    #Single_ops = 
+    ops = st.selectbox("Type of analysis", ["Missing Values", "Outliers", "Entry Type", "Duplicates", "Distributions"])
 
     ## Container to hold dropdown list of each column
     col_holder = st.empty()
@@ -116,6 +115,16 @@ if options == 'Single Column Analysis':
     with col_holder.container():
         column_list = list(dataset)
         column_name = st.selectbox("Select column to analyse", column_list)
+
+    ## show column type
+    coltype_holder = st.empty()
+    def update_coltype():
+        with coltype_holder.container():
+            data_conv = dataset.convert_dtypes()
+            col_type = data_conv[column_name].dtype
+            st.info('{} column type is: {}'.format(column_name, col_type))
+
+    update_coltype()
 
     ## end progress bar
     prog.progress(100)
@@ -137,6 +146,7 @@ if options == 'Single Column Analysis':
     if ops == "Missing Values":
         st.subheader("Missing Values Identification and Repair")
         
+        ### compute missing values and place them in dict
         def compute_missing(dataset, column_name):
             '''compute missing values and save in dict'''
             missing_values = dataset[column_name].isnull().sum()
@@ -148,7 +158,8 @@ if options == 'Single Column Analysis':
             return missing_df
         ### compute missing
         missing_df = compute_missing(dataset, column_name)
-
+        
+        ### plot missing values using piechart
         def missing_values_plotter(val, k):
             '''plot missing values with pie chart'''
             #st.write(str(column_name))
@@ -175,6 +186,12 @@ if options == 'Single Column Analysis':
             with pie_holder.container():
                 missing_values_plotter(list(missing_df.values()), list(missing_df.keys()))
 
+            def recompute_and_plot():
+                '''recompute missing values and update plot'''
+                with pie_holder.container():
+                            missing_df = compute_missing(dataset, column_name)
+                            missing_values_plotter(list(missing_df.values()), list(missing_df.keys()))
+
         ## Check whether columns contain missing values
         if dataset[column_name].isnull().sum() != 0:
 
@@ -189,20 +206,16 @@ if options == 'Single Column Analysis':
                     dataset.drop(missing_index, inplace=True)
                     dataset.reset_index()
                 
-                    with pie_holder.container():
-                        missing_df = compute_missing(dataset, column_name)
-                        missing_values_plotter(list(missing_df.values()), list(missing_df.keys()))
+                    recompute_and_plot()
                     st.success('Null values successfully removed')
 
                 #### replace missing values with mean  ############################################  
                 if st.button("Replace null values with mean"):
                     if dataset[column_name].dtype == "int64" or dataset[column_name].dtype == "float64":
-                        missing_index = dataset[dataset[column_name].isnull()].index.tolist()
+                        #missing_index = dataset[dataset[column_name].isnull()].index.tolist()
                         dataset[column_name].fillna(dataset[column_name].mean(), inplace=True)
 
-                        with pie_holder.container():
-                            missing_df = compute_missing(dataset, column_name)
-                            missing_values_plotter(list(missing_df.values()), list(missing_df.keys()))
+                        recompute_and_plot()
                         st.success('Null values successfully replaced with mean values')
 
                     else:
@@ -225,14 +238,26 @@ if options == 'Single Column Analysis':
 
                         dataset[int_data.columns] = df_new[int_data.columns]
 
-                        with pie_holder.container():
-                            missing_df = compute_missing(dataset, column_name)
-                            missing_values_plotter(list(missing_df.values()), list(missing_df.keys()))
+                        recompute_and_plot()
                         st.success('Null values successfully replaced with nearest neighbours')
 
 
                     else:
                         st.warning("Numeric column only")
+
+                #### repair missing value using user inpute ################################################
+                with st.expander('Replace with specified value'):
+                    if dataset[column_name].dtype == "int64" or dataset[column_name].dtype == "float64":
+                        user_miss_input = st.number_input("Input", min_value=0)
+                
+                    else:
+                        user_miss_input = st.text_input("Input")
+
+                    if st.button('Replace'):
+                        dataset[column_name].fillna(value=user_miss_input, inplace=True)
+                        ##### show results
+                        recompute_and_plot()
+                        st.success('Null values successfully replaced with user iput')
 
                 #### remove column ##############################################
                 if st.button("Remove column"):
@@ -243,9 +268,7 @@ if options == 'Single Column Analysis':
                         column_list = list(dataset)
                         column_name = st.selectbox("Select column to analyse", column_list)
 
-                    with pie_holder.container():
-                            missing_df = compute_missing(dataset, column_name)
-                            missing_values_plotter(list(missing_df.values()), list(missing_df.keys()))
+                    recompute_and_plot()
                                                 
         else:
             with repair:
@@ -259,9 +282,7 @@ if options == 'Single Column Analysis':
                         column_list = list(dataset)
                         column_name = st.selectbox("Select column to analyse", column_list)
 
-                    with pie_holder.container():
-                            missing_df = compute_missing(dataset, column_name)
-                            missing_values_plotter(list(missing_df.values()), list(missing_df.keys()))
+                    recompute_and_plot()
 
     ##############################################################################
     ## Data type analysis #######################################################
@@ -327,6 +348,8 @@ if options == 'Single Column Analysis':
         with rem:
             st.subheader('')
             st.write('Perform repair action')
+
+            #### delete numeric entries ###############################################################
             if st.button('Delete numeric entries'):
                 dataset.drop(digit_index, inplace=True)
                 dataset.reset_index()
@@ -335,6 +358,7 @@ if options == 'Single Column Analysis':
                 with bar_holder.container():
                     barplotter(uniq_list_dtypes, uniq_counts)
 
+            #### delete string entries ################################################################
             if st.button('Delete string entries'):
                 dataset.drop(str_index, inplace=True)
                 dataset.reset_index()
@@ -343,6 +367,7 @@ if options == 'Single Column Analysis':
                 with bar_holder.container():
                     barplotter(uniq_list_dtypes, uniq_counts)
 
+            #### delete other entries #################################################################
             if st.button('Delete other entries'):
                 dataset.drop(other_index, inplace=True)
                 dataset.reset_index()
@@ -363,6 +388,10 @@ if options == 'Single Column Analysis':
             column_name = st.selectbox("Select column to analyse", column_list)
             st.info('Showing numeric columns only')
 
+        ### update coltype_holder
+        update_coltype()
+
+        ### columns to hold plot and repair methods
         box, outlier_repair = st.columns([2,1])
 
         def box_plotter(dataset):
@@ -459,18 +488,37 @@ if options == 'Single Column Analysis':
                     ##### show results
                     outlier_removal_update(lower, upper)
 
-            
+    ############################################################################################################
+    ## Duplicate Analysis ######################################################################################
+    if ops == 'Duplicates':
+        st.empty()
 
-            
+    ############################################################################################################
+    ## Distributions Analysis ##################################################################################
+    if ops == "Distributions":
+        st.subheader('Column distribution')
 
+        def hist_plotter():
+            fig = px.histogram(dataset[column_name], nbins=30)
+            fig.update_layout(margin=dict(t=30, b=0, l=0, r=80), title_text='Distribution of {} '.format(str(column_name)), title_x=0.3)
+            return st.plotly_chart(fig, use_container_width=True)
 
-# delete_holder = st.empty()
-# with delete_holder.container():
-#     delete_button(column_name)
+        hist, stats = st.columns([2,1])
+
+        with hist:
+            hist_holder = st.empty()
+
+            with hist.container():
+                hist_plotter()
+
+        if dataset[column_name].dtype == "int64" or dataset[column_name].dtype == "float64":
+            with stats:
+                st.write('Summary statistics')
+                st.write(dataset[column_name].describe(include='all'))
 
 #####################################################################################################################################
 # Multiple Column Analysis #####
-if options == 'Multiple Column Analysis':
+if main_options == 'Multiple Column Analysis':
     st.subheader("Multiple Column Analysis")
 
     ## start progress bar
