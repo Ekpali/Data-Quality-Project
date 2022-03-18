@@ -12,6 +12,8 @@ from sklearn.impute import KNNImputer
 from sklearn.preprocessing import MinMaxScaler
 import plotly.express as px
 import plotly.graph_objects as go
+import missingno as msno
+import seaborn as sns
 
 # outliers
 from numpy import mean
@@ -106,7 +108,7 @@ if main_options == 'Single Column Analysis':
 
     ## Dropdown list of type of analysis
     #Single_ops = 
-    ops = st.selectbox("Type of analysis", ["Missing Values", "Outliers", "Entry Type", "Duplicates", "Distributions"])
+    ops = st.selectbox("Type of analysis", ["Missing Values", "Outliers", "Entry Type", "Distributions"])
 
     ## Container to hold dropdown list of each column
     col_holder = st.empty()
@@ -170,7 +172,7 @@ if main_options == 'Single Column Analysis':
             colors = ['red', 'green']
             fig.update_traces(textfont_size=17,
                   marker=dict(colors=colors))
-            fig.update_layout(margin=dict(t=30, b=0, l=0, r=80), title_text='Null values in {} '.format(str(column_name)), title_x=0.25)
+            fig.update_layout(margin=dict(t=30, b=0, l=0, r=80), title_text='Null values in {} '.format(str(column_name)), title_x=0.3)
             fig['layout']['title']['font'] = dict(size=20)
             
             return st.plotly_chart(fig, use_container_width=True)
@@ -231,7 +233,7 @@ if main_options == 'Single Column Analysis':
                         df_int = pd.DataFrame(scaler.fit_transform(int_data), columns = int_data.columns)
 
                         # Inpute values
-                        imputer = KNNImputer(n_neighbors=15)
+                        imputer = KNNImputer(n_neighbors=5)
                         df_new = pd.DataFrame(imputer.fit_transform(df_int),columns = df_int.columns)
 
                         df_new[int_data.columns] = scaler.inverse_transform(df_new[int_data.columns])
@@ -437,7 +439,7 @@ if main_options == 'Single Column Analysis':
             ##### print success message
             def outlier_success_print():
                 if len(outliers) > 0:
-                    st.success('{} removed successfully'.format(len(outliers)))
+                    st.success('{} outliers removed successfully'.format(len(outliers)))
 
                 else:
                     st.info('No identified outliers')
@@ -471,10 +473,10 @@ if main_options == 'Single Column Analysis':
             if st.button('Interquartile range'):
 
                 ##### calculate interquartile range
-                q25, q75 = np.percentile(dataset[column_name], 25), np.percentile(dataset[column_name], 75)
+                q25, q75 = np.quantile(dataset[column_name], 0.25), np.quantile(dataset[column_name], 0.75)
                 iqr = q75 - q25
                 ##### calculate the outlier cutoff
-                cut_off = iqr * 1.5
+                cut_off = iqr * 1.1
                 lower, upper = q25 - cut_off, q75 + cut_off
                 ##### show results
                 outlier_removal_update(lower, upper)
@@ -488,10 +490,6 @@ if main_options == 'Single Column Analysis':
                     ##### show results
                     outlier_removal_update(lower, upper)
 
-    ############################################################################################################
-    ## Duplicate Analysis ######################################################################################
-    if ops == 'Duplicates':
-        st.empty()
 
     ############################################################################################################
     ## Distributions Analysis ##################################################################################
@@ -500,7 +498,8 @@ if main_options == 'Single Column Analysis':
 
         def hist_plotter():
             fig = px.histogram(dataset[column_name], nbins=30)
-            fig.update_layout(margin=dict(t=30, b=0, l=0, r=80), title_text='Distribution of {} '.format(str(column_name)), title_x=0.3)
+            fig.update_layout(margin=dict(t=30, b=0, l=0, r=80), 
+                                title_text='Distribution of {} '.format(str(column_name)), title_x=0.3)
             return st.plotly_chart(fig, use_container_width=True)
 
         hist, stats = st.columns([2,1])
@@ -517,24 +516,114 @@ if main_options == 'Single Column Analysis':
                 st.write(dataset[column_name].describe(include='all'))
 
 #####################################################################################################################################
-# Multiple Column Analysis #####
+#################################################### Multiple Column Analysis #######################################################
+#####################################################################################################################################
 if main_options == 'Multiple Column Analysis':
     st.subheader("Multiple Column Analysis")
 
     ## start progress bar
     prog = st.progress(0)
 
-    multi_ops = ["Missing values", "Clusters and Outliers", "Transpose", "Anomaly Detection"]
-    ops = st.selectbox("Select Analysis", multi_ops)
-
-    if multi_ops == "Missing Values":
-        dataset.isna().any()
-
-        dataset.isna().sum()
+    multi_ops = st.selectbox("Select Analysis", 
+                            ["Missing values", "Clusters and Outliers", "Anomaly Detection", "Duplicates", "Transpose"])
 
     ## end progress bar
     prog.progress(100)
 
+    ###########################################################################################################
+    ## Missing values #########################################################################################
+    if multi_ops == "Missing values":
+
+        mat, repair = st.columns([2,1])
+        
+        with mat:
+            miss_holder = st.empty()
+            def miss_plot():
+                fig = px.imshow(dataset.notnull(), color_continuous_scale=px.colors.sequential.Blues)
+                fig.update_layout(margin=dict(t=30, b=0, l=0, r=80), title_text='Missing values in dataset', title_x=0.45, coloraxis_showscale=False)
+                
+                return st.plotly_chart(fig, use_container_width=True)
+
+            with miss_holder.container():    
+                miss_plot()
+
+            with repair:
+                if dataset.isnull().sum().sum() != 0:
+                    st.header('')
+                    if st.button('Drop all missing values'):
+                        dataset.dropna(inplace=True)
+        
+                        with miss_holder.container():
+                            st.success('All missing values removed successfully')
+                            miss_plot()
+
+                    #### repair missing value using user inpute ################################################
+                    with st.expander('Replace with specified value'):
+                        if len(dataset.dtypes[dataset.dtypes == 'int64'][dataset.dtypes == 'float64']) == len(dataset.dtypes):
+                            user_miss_input = st.number_input("Input")
+
+                            if st.button('Replace'):
+                                dataset.fillna(value=user_miss_input, inplace=True)
+                                ##### show results
+                                with miss_holder.container():
+                                    st.success('Null values successfully replaced with user iput')
+                                    miss_plot()
+
+                        elif len(dataset.dtypes[dataset.dtypes != 'int64'][dataset.dtypes != 'float64']) == len(dataset.dtypes):
+                            user_miss_input = st.text_input("Input")
+
+                            if st.button('Replace'):
+                                dataset.fillna(value=user_miss_input, inplace=True)
+                                ##### show results
+                                with miss_holder.container():
+                                    st.success('Null values successfully replaced with user iput')
+                                    miss_plot()
+
+                        
+                else:
+                    st.info('There are no missing values in the dataset')
+
+
+    ############################################################################################################
+    ## Duplicate Analysis ######################################################################################
+    if multi_ops == 'Duplicates':
+
+        dup, drop_dup = st.columns([2,1])
+
+        def dup_df():
+
+            dup_ent = dataset[dataset.duplicated()]
+            with dup:
+                dup_holder = st.empty()
+
+            if len(dup_ent) > 0:
+                
+                with dup_holder.container():
+                    st.info(f'There are {len(dup_ent)} duplicate enteries in the dataset')
+                    st.write(dup_ent)
+                
+                with drop_dup:
+                    if st.button('drop duplicates'):
+                        dataset.drop_duplicates(inplace=True)
+                        with dup_holder.container():
+                            st.empty()
+                            st.success('Duplicate rows removed successfully')
+                    
+                    
+            else:
+                st.success('There are no duplicate entries in the dataset')
+
+        dup_df()
+
+    ###########################################################################################################
+    ## Anomaly Detection ######################################################################################
+    if multi_ops == "Anomaly Detection":
+       st.write('Anomaly detection using PyCaret')
+
+    ###########################################################################################################
+    ## Transpose Data ######################################################################################
+    if multi_ops == "Transpose":
+       st.write('Anomaly detection using PyCaret')
 
 ####################################################################################################################################
 # Download dataset after processing
