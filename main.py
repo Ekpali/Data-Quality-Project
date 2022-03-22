@@ -15,6 +15,7 @@ import plotly.graph_objects as go
 import missingno as msno
 import seaborn as sns
 import plotly.figure_factory as ff
+import base64
 
 
 # outliers
@@ -22,16 +23,86 @@ from numpy import mean
 from numpy import std
 from scipy.stats import shapiro
 
+
 st.set_page_config(layout = "wide")
 
+# Set background image courtesy of soft-nougat on https://discuss.streamlit.io/t/how-do-i-use-a-background-image-on-streamlit/5067/17
+def set_bg_hack(main_bg):
+    '''
+    A function to unpack an image from root folder and set as bg.
+ 
+    Returns
+    -------
+    The background.
+    '''
+    # set bg name
+    main_bg_ext = "png"
+        
+    st.markdown(
+         f"""
+         <style>
+         .stApp {{
+             background: url(data:image/{main_bg_ext};base64,{base64.b64encode(open(main_bg, "rb").read()).decode()});
+             background-size: cover
+         }}
+         </style>
+         """,
+         unsafe_allow_html=True
+     )
+
+set_bg_hack('background.jpg')
+
+# Set side image courtesy of soft-nougat on https://discuss.streamlit.io/t/how-do-i-use-a-background-image-on-streamlit/5067/17
+def sidebar_bg(side_bg):
+
+   side_bg_ext = 'png'
+
+   st.markdown(
+      f"""
+      <style>
+      [data-testid="stSidebar"] > div:first-child {{
+          background: url(data:image/{side_bg_ext};base64,{base64.b64encode(open(side_bg, "rb").read()).decode()});
+      }}
+      </style>
+      """,
+      unsafe_allow_html=True,
+      )
+
+side_bg = 'sidecolor.png'
+sidebar_bg(side_bg)
+
 st.title('Data Quality Tool')
+
+intro_page = st.empty()
+
+def intro():
+    st.subheader('Welcome to the data exploration, quality check and repair tool 🕵')
+    st.write('This tool supports the following features:')
+    """ 
+    * Data profiling using Pandas Profiler 
+    * Single Column Analysis
+        * Missing value identification, removal and imputation 
+        * Identification and removal of Outliers
+        * Column entry type exploration and
+        * Column distributions for both categorical and numerical features
+    * Multiple columns Analysis
+        * Missing value identification, removal and imputation
+        * Scatter plots and distributions
+        * Duplicates detection and removal
+        * Correlation exploration 
+        * Anomaly detection 
+        * Clusters
+    """
+
+with intro_page.container():
+    intro()
 
 # Clear cache to start fresh session
 if st.sidebar.button("Start/Restart Session"):
     st.legacy_caching.caching.clear_cache()
 
 # Import dataset in either of the three accepted formats xlsx, csv or txt
-selected_file = st.sidebar.file_uploader("Please upload file", type=["xlsx", "csv", "txt"], accept_multiple_files=False) 
+selected_file = st.sidebar.file_uploader("Please upload file", type=["xlsx", "csv", "txt"], accept_multiple_files=False)
 
 @st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
 def file_uploader():
@@ -50,12 +121,16 @@ def file_uploader():
     else:
         st.sidebar.info("Please upload a valid xlsx, csv or txt file")
         st.stop()
-    
+
     return df 
 
 # load dataset
 dataset = file_uploader()
 
+with intro_page.container():
+    st.empty()
+    st.empty()
+    st.empty()
 
 #############################################################################################################################################
 ## Main functions (contains a sidebar of the compatible functions) ########### 
@@ -326,8 +401,6 @@ if main_options == 'Single Column Analysis':
             uniq_list_dtypes = Counter(list_dtypes).keys()
             uniq_counts = Counter(list_dtypes).values()
 
-            return uniq_list_dtypes, uniq_counts
-
         ### funtion to make barplot
         def barplotter(list, count):
             fig = px.bar(x=list, y=count, labels= {'y': 'entry count', 'x': 'entry type'}, 
@@ -516,6 +589,7 @@ if main_options == 'Single Column Analysis':
     if ops == "Distributions":
         st.subheader('Column distribution')
 
+        ### function to plot distributions
         def hist_plotter():
             fig = px.histogram(dataset[column_name], nbins=40)
             fig.update_layout(margin=dict(t=30, b=0, l=0, r=80), 
@@ -530,6 +604,7 @@ if main_options == 'Single Column Analysis':
             with hist.container():
                 hist_plotter()
 
+        ### show statistics for numeric columns
         if dataset[column_name].dtype == "int64" or dataset[column_name].dtype == "float64":
             with stats:
                 st.write('Summary statistics')
@@ -545,8 +620,8 @@ if main_options == 'Multiple Column Analysis':
     prog = st.progress(0)
 
     multi_ops = st.selectbox("Select Analysis", 
-                            ["Missing values", "Clusters and Outliers", "Anomaly Detection", 
-                            "Duplicates", "Correlations", "Scatter and Distributions"])
+                            ["Missing values", "Clusters", "Anomaly Detection", 
+                            "Duplicates", "Correlations", "Distributions", "Scatter plots"])
 
     select_cols_hold = st.empty()
 
@@ -555,15 +630,16 @@ if main_options == 'Multiple Column Analysis':
 
     if len(select_cols) > 0:
 
-        ## end progress bar
+        ### end progress bar
         prog.progress(100)
 
         ###########################################################################################################
-        ## Missing values #########################################################################################
+        ### Missing values #########################################################################################
         if multi_ops == "Missing values":
 
             mat, repair = st.columns([2,1])
             
+            #### column to show missing values using matrix
             with mat:
                 miss_holder = st.empty()
                 def miss_plot():
@@ -574,12 +650,14 @@ if main_options == 'Multiple Column Analysis':
                     
                     return st.plotly_chart(fig, use_container_width=True)
 
+                ##### table of missing values
                 with miss_holder.container():    
                     miss_plot()
                     st.write('Total no of missing values in each column')
                     dat = pd.DataFrame(dataset[select_cols].isnull().sum()).transpose()
                     dat
 
+                ##### button to drop all missing values
                 with repair:
                     if dataset[select_cols].isnull().sum().sum() != 0:
                         st.header('')
@@ -597,6 +675,8 @@ if main_options == 'Multiple Column Analysis':
                             
                         #### repair missing value using user inpute ################################################
                         with st.expander('Replace with specified value'):
+
+                            ####### use number input for numeric columns  
                             if len(dataset[select_cols].dtypes[dataset[select_cols].dtypes == 'int64']
                                     [dataset[select_cols].dtypes == 'float64']) == len(dataset[select_cols].dtypes):
                                 user_miss_input = st.number_input("Input")
@@ -608,6 +688,7 @@ if main_options == 'Multiple Column Analysis':
                                         st.success('Null values successfully replaced with user input')
                                         miss_plot()
 
+                            ######## use text input for nominal columns 
                             elif len(dataset[select_cols].dtypes[dataset[select_cols].dtypes != 'int64']
                                     [dataset[select_cols].dtypes != 'float64']) == len(dataset[select_cols].dtypes):
                                 user_miss_input = st.text_input("Input")
@@ -625,10 +706,12 @@ if main_options == 'Multiple Column Analysis':
 
 
         ############################################################################################################
-        ## Duplicate Analysis ######################################################################################
+        ### Duplicate Analysis ######################################################################################
         if multi_ops == 'Duplicates':
 
             dup, drop_dup = st.columns([2,1])
+
+            #### check duplicates 
             def dup_df():
                 '''Check if duplicates exist and drop'''
                 dup_ent = dataset[select_cols][dataset[select_cols].duplicated()]
@@ -641,6 +724,7 @@ if main_options == 'Multiple Column Analysis':
                         st.info(f'There are {len(dup_ent)} duplicate enteries in the selected columns')
                         st.write(dup_ent)
                     
+                    ###### drop duplicate entries
                     with drop_dup:
                         if st.button('Drop duplicates'):
                             dataset.drop_duplicates(subset=select_cols,inplace=True)
@@ -654,18 +738,19 @@ if main_options == 'Multiple Column Analysis':
             dup_df()
 
         ###########################################################################################################
-        ## Anomaly Detection ######################################################################################
+        ### Anomaly Detection ######################################################################################
         if multi_ops == "Anomaly Detection":
             with select_cols_hold.container():
                 st.empty()
             
+            #### selection columns for numeric and categorical data
             box_col, options = st.columns([2,1])
             with options:
                 num_data = st.selectbox('Select Y values (numeric)', dataset.select_dtypes(include=[np.number]).columns)
                 cat_data = st.selectbox('Select X values (categorical)', dataset.select_dtypes(exclude=[np.number]).columns)
 
+            #### boxplot of outliers
             with box_col:
-
                 def multi_box_plot():
                     fig = px.box(dataset, x=str(cat_data), y=str(num_data))
                     fig.update_layout(margin=dict(t=30, b=0, l=0, r=20), 
@@ -678,23 +763,24 @@ if main_options == 'Multiple Column Analysis':
 
         
         ###########################################################################################################
-        ## Scatter and Distributions ######################################################################################
-        if multi_ops == "Scatter and Distributions":
+        ### Scatter and Distributions ######################################################################################
+        if multi_ops == "Distributions":
 
             if dataset.isna().sum().sum() > 0:
                 st.warning('Dataset contains missing values, this may lead to errors in plots')
             with select_cols_hold.container():
                 st.empty()
             
+            #### get x and y data for plot
             hist_col, options = st.columns([2,1])
             with options:
                 x_data = st.selectbox('Select X values ', dataset.columns)
                 y_data = st.selectbox('Select Y values', dataset.columns)
                 bar_col = st.selectbox('Select column to colour plot by', dataset.columns)
                 
-
+            #### make bar plot
             with hist_col:
-
+                #@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
                 def multi_hist_plotter():
                     fig = px.bar(dataset, x=x_data, y=y_data, color=bar_col)
                     fig.update_layout(margin=dict(t=30, b=0, l=0, r=20), 
@@ -703,13 +789,20 @@ if main_options == 'Multiple Column Analysis':
 
                 multi_hist_plotter()
 
+        if multi_ops == "Scatter plots":
+            if dataset.isna().sum().sum() > 0:
+                st.warning('Dataset contains missing values, this may lead to errors in plots')
+            
+            #### get x and y data for scatter 
             scatter, scatter_opt = st.columns([2,1])
             with scatter_opt:
                 x_dat = st.selectbox('Select X values', dataset.select_dtypes(include=[np.number]).columns)
                 y_dat = st.selectbox('Select Y values', dataset.select_dtypes(include=[np.number]).columns)
                 bar_colscat = st.selectbox('Select column to colour plot', dataset.columns)
 
+            #### make sactter plot 
             with scatter:
+                #@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
                 def scatter_plotter():
                     fig = px.scatter(dataset, x=x_dat, y=y_dat, color=bar_colscat)
                     fig.update_layout(margin=dict(t=30, b=0, l=0, r=20), 
@@ -722,14 +815,15 @@ if main_options == 'Multiple Column Analysis':
 
         ###########################################################################################################
         ## Transpose Data #########################################################################################
-        if multi_ops == "Transpose":
-            st.write('Anomaly detection using PyCaret')
+        # if multi_ops == "Transpose":
+        #     st.write('')
 
         ###########################################################################################################
         ## Correlations ###########################################################################################
         if multi_ops == "Correlations":
             #st.info('Please refer to Data Summary section for Correlations')
 
+            #### get numeric columns 
             num_data = dataset.select_dtypes(include=[np.number])
 
             with select_cols_hold.container():
@@ -738,6 +832,7 @@ if main_options == 'Multiple Column Analysis':
 
                 corr = dataset[select_cols].corr().round(3)
 
+                ##### make heatmap corrplot of numeric columns
                 if len(select_cols) > 0:
                     def corr_plot():
                         fig = ff.create_annotated_heatmap(z=corr.to_numpy(), 
@@ -749,7 +844,6 @@ if main_options == 'Multiple Column Analysis':
                                         font_colors=['black']
                                         )
 
-                        #fig = go.Figure(data=[heat])
                         fig.update_layout(margin=dict(t=30, b=0, l=0, r=80), 
                                         title_text='Correlation plot', 
                                         title_x=0.5)
@@ -760,9 +854,6 @@ if main_options == 'Multiple Column Analysis':
                     corr_plot()
                 else:
                     st.info('Please select columns')
-
-
-
 
     else:
         st.info('Please select columns')
@@ -777,8 +868,7 @@ st.sidebar.header('')
 st.sidebar.header('')
 st.sidebar.header('')
 st.sidebar.header('')
-st.sidebar.header('')
-st.sidebar.header('')
+
 
 st.sidebar.download_button(
     label="Download data as CSV ⬇️",
