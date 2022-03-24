@@ -4,6 +4,7 @@ from streamlit_pandas_profiling import st_profile_report
 import matplotlib.pyplot as plt 
 import pandas as pd
 import numpy as np
+import openpyxl
 from collections import Counter
 import os
 from sklearn.impute import KNNImputer
