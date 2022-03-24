@@ -10,19 +10,22 @@ from collections import Counter
 import os
 from sklearn.impute import KNNImputer
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import silhouette_samples, silhouette_score
+from sklearn.cluster import KMeans
 import plotly.express as px
 import plotly.graph_objects as go
 import missingno as msno
 import seaborn as sns
 import plotly.figure_factory as ff
 import base64
+from PIL import Image
 
 
 # outliers
 from numpy import mean
 from numpy import std
 from scipy.stats import shapiro
-
 
 st.set_page_config(layout = "wide")
 
@@ -75,27 +78,30 @@ st.title('Data Quality Tool')
 
 intro_page = st.empty()
 
+#@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
 def intro():
-    st.subheader('Welcome to the data exploration, quality check and repair tool 🕵')
-    st.write('This tool supports the following features:')
-    """ 
-    * Data profiling using Pandas Profiler 
-    * Single Column Analysis
-        * Missing value identification, removal and imputation 
-        * Identification and removal of Outliers
-        * Column entry type exploration and
-        * Column distributions for both categorical and numerical features
-    * Multiple columns Analysis
-        * Missing value identification, removal and imputation
-        * Scatter plots and distributions
-        * Duplicates detection and removal
-        * Correlation exploration 
-        * Anomaly detection 
-        * Clusters
-    """
-
-with intro_page.container():
-    intro()
+    description, flow = st.columns([5,1])
+    with description:
+        st.subheader('Welcome to the data exploration, quality check and repair tool 🕵')
+        st.write('This tool supports the following features:')
+        """ 
+        * Data profiling using Pandas Profiler 
+        * Single Column Analysis
+            * Missing value identification, removal and imputation 
+            * Identification and removal of Outliers
+            * Column entry type exploration and
+            * Column distributions for both categorical and numerical features
+        * Multiple columns Analysis
+            * Missing value identification, removal and imputation
+            * Scatter plots and distributions
+            * Duplicates detection and removal
+            * Correlation exploration 
+            * Anomaly detection 
+            * Clusters
+        """
+    with flow:
+        image = Image.open('flow.png')
+        st.image(image, width=None)
 
 # Clear cache to start fresh session
 if st.sidebar.button("Start/Restart Session"):
@@ -106,9 +112,7 @@ selected_file = st.sidebar.file_uploader("Please upload file", type=["xlsx", "cs
 
 @st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
 def file_uploader():
-    
     ''' This function uploads dataset into the system'''
-      
     if selected_file is not None:
         
         if "csv" in selected_file.name:
@@ -118,8 +122,13 @@ def file_uploader():
         elif "txt" in selected_file.name:
             df = pd.read_fwf(selected_file)
         st.sidebar.success("upload successful")
+        with intro_page.container():
+            st.empty()
+
     else:
         st.sidebar.info("Please upload a valid xlsx, csv or txt file")
+        with intro_page.container():
+            intro()
         st.stop()
 
     return df 
@@ -127,15 +136,9 @@ def file_uploader():
 # load dataset
 dataset = file_uploader()
 
-with intro_page.container():
-    st.empty()
-    st.empty()
-    st.empty()
-
 #############################################################################################################################################
 ## Main functions (contains a sidebar of the compatible functions) ########### 
 main_options = st.sidebar.radio("Select Task", ["Data Summary", "Single Column Analysis", "Multiple Column Analysis"])
-
 
 ########################################################################################
 # DQ Summary #################
@@ -336,7 +339,7 @@ if main_options == 'Single Column Analysis':
                         dataset[column_name].fillna(value=user_miss_input, inplace=True)
                         ##### show results
                         recompute_and_plot()
-                        st.success('Null values successfully replaced with user iput')
+                        st.success('Null values successfully replaced with user input')
 
                 #### remove column ##############################################
                 if st.button("Remove column"):
@@ -511,6 +514,8 @@ if main_options == 'Single Column Analysis':
             stat, p = shapiro(dataset[column_name])
             out_stat = pd.DataFrame([{'CI':'5%','p-value':p, 'statistic':stat}])
             st.write(out_stat)
+            if dataset[column_name].isnull().sum() > 0:
+                st.warning('Column contains null values causing NA in statistic measure')
 
         ### column holding repair methods
         with outlier_repair:
@@ -620,8 +625,7 @@ if main_options == 'Multiple Column Analysis':
     prog = st.progress(0)
 
     multi_ops = st.selectbox("Select Analysis", 
-                            ["Missing values", "Clusters", "Anomaly Detection", 
-                            "Duplicates", "Correlations", "Distributions", "Scatter plots"])
+                            ["Missing values", "Duplicates", "Correlations", "Distributions", "Scatter plots", "Anomaly Detection", "Clustering"])
 
     select_cols_hold = st.empty()
 
@@ -763,7 +767,7 @@ if main_options == 'Multiple Column Analysis':
 
         
         ###########################################################################################################
-        ### Scatter and Distributions ######################################################################################
+        ### Distributions #########################################################################################
         if multi_ops == "Distributions":
 
             if dataset.isna().sum().sum() > 0:
@@ -774,24 +778,28 @@ if main_options == 'Multiple Column Analysis':
             #### get x and y data for plot
             hist_col, options = st.columns([2,1])
             with options:
-                x_data = st.selectbox('Select X values ', dataset.columns)
-                y_data = st.selectbox('Select Y values', dataset.columns)
+                x_data = st.selectbox('Select X values (categorical)', dataset.select_dtypes(exclude=[np.number]).columns)
+                y_data = st.selectbox('Select Y values (numeric)', dataset.select_dtypes(include=[np.number]).columns)
                 bar_col = st.selectbox('Select column to colour plot by', dataset.columns)
                 
             #### make bar plot
             with hist_col:
                 #@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
                 def multi_hist_plotter():
-                    fig = px.bar(dataset, x=x_data, y=y_data, color=bar_col)
+                    fig = px.bar(dataset, x=x_data, y=y_data, color=bar_col, color_continuous_scale=px.colors.sequential.Blues)
                     fig.update_layout(margin=dict(t=30, b=0, l=0, r=20), 
                                 title_text=f'Distribution of {x_data} by {y_data}', title_x=0.3)
                     return st.plotly_chart(fig, use_container_width=True)
 
                 multi_hist_plotter()
 
+        ###########################################################################################################
+        ### Scatter plots #########################################################################################
         if multi_ops == "Scatter plots":
             if dataset.isna().sum().sum() > 0:
                 st.warning('Dataset contains missing values, this may lead to errors in plots')
+            with select_cols_hold.container():
+                st.empty()
             
             #### get x and y data for scatter 
             scatter, scatter_opt = st.columns([2,1])
@@ -804,7 +812,7 @@ if main_options == 'Multiple Column Analysis':
             with scatter:
                 #@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
                 def scatter_plotter():
-                    fig = px.scatter(dataset, x=x_dat, y=y_dat, color=bar_colscat)
+                    fig = px.scatter(dataset, x=x_dat, y=y_dat, color=bar_colscat, color_continuous_scale=px.colors.sequential.Blues)
                     fig.update_layout(margin=dict(t=30, b=0, l=0, r=20), 
                                 title_text=f'Scatter plot of {y_dat} by {x_dat}', title_x=0.3)
 
@@ -814,9 +822,78 @@ if main_options == 'Multiple Column Analysis':
                 
 
         ###########################################################################################################
-        ## Transpose Data #########################################################################################
-        # if multi_ops == "Transpose":
-        #     st.write('')
+        ## Clustering ### from https://www.kaggle.com/code/dhanyajothimani/basic-visualization-and-clustering-in-python/notebook ########
+        if multi_ops == "Clustering":
+            if dataset.isna().sum().sum() > 0:
+                st.warning('Dataset contains missing values, this may lead to errors in plots')
+            
+            with select_cols_hold.container():
+                st.empty()
+            
+            st.write('Clustering with numeric columns')
+            f_list = st.multiselect('Select X values', dataset.select_dtypes(include=[np.number]).columns, 
+                                    default=list(dataset.select_dtypes(include=[np.number]).columns))
+
+            if len(f_list) > 0:
+
+                #### get x and y data for scatter 
+                clust, clust_opt = st.columns([2,1])
+                with clust_opt:
+
+                    f_dat = dataset[f_list]
+
+                    ss = StandardScaler()
+                    ss.fit_transform(np.array(f_dat).reshape(-1,1))
+
+                    @st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
+                    def n_clusters_finder(dat):
+                        
+                        clust_range = [2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+
+                        #clust_n = []
+                        sil_avg = []
+
+                        for n_clusters in clust_range:
+                            clusterer = KMeans(n_clusters=n_clusters, random_state=10)
+                            cluster_labels = clusterer.fit_predict(dat)
+                            silhouette_avg = silhouette_score(dat, cluster_labels)
+                            sil_avg.append(silhouette_avg)
+
+                        return clust_range[np.argmax(sil_avg)]
+
+                    nclust = n_clusters_finder(f_dat)
+
+                    @st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
+                    def cluster(dat, nclust):
+                        model = KMeans(nclust)
+                        model.fit(dat)
+                        #model = AgglomerativeClustering(n_clusters=nclust, affinity = 'euclidean', linkage = 'ward')
+                        clust_labels = model.predict(dat)
+                        return (clust_labels)
+
+                    clust_labels = cluster(f_dat, nclust)
+                    kmeans = pd.DataFrame(clust_labels)
+                    f_dat.insert((f_dat.shape[1]),'agglomerative',kmeans)
+                    
+                    x_dat = st.selectbox('Select X values', f_list)
+                    y_dat = st.selectbox('Select Y values', f_list)
+                    #bar_colscat = st.selectbox('Select column to colour plot', dataset.columns)
+
+                with clust:
+                    st.info(f'Optimal number of clusters obtained from silhouette method is {nclust}')
+
+                    def clust_plot():
+
+                        fig = px.scatter(f_dat, x=x_dat, y=y_dat, color=kmeans[0])
+                        fig.update_layout(margin=dict(t=30, b=0, l=0, r=20), 
+                                    title_text=f'Scatter plot of {y_dat} by {x_dat}', title_x=0.3)
+
+                        return st.plotly_chart(fig, use_container_width=True)
+                    
+                    clust_plot()
+            else:
+                st.info('Please select columns')
+
 
         ###########################################################################################################
         ## Correlations ###########################################################################################
