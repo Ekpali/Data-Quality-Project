@@ -4,6 +4,7 @@
 This project explores avenues to detect dataset quality as well as suggested repairs to the dataset for my MSc Data Science 
 
 Welcome to the data exploration, quality check and repair tool 🕵
+
 This tool supports the following features:
 
 * Data profiling using Pandas Profiler
