@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas_profiling
 from streamlit_pandas_profiling import st_profile_report
 import matplotlib.pyplot as plt 
 import pandas as pd
