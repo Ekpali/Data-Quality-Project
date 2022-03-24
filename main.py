@@ -1,7 +1,5 @@
 from pycaret.anomaly import *
 import streamlit as st
-from streamlit import caching
-from pandas_profiling import ProfileReport
 from streamlit_pandas_profiling import st_profile_report
 import matplotlib.pyplot as plt 
 import pandas as pd
@@ -15,8 +13,6 @@ from sklearn.metrics import silhouette_samples, silhouette_score
 from sklearn.cluster import KMeans
 import plotly.express as px
 import plotly.graph_objects as go
-import missingno as msno
-import seaborn as sns
 import plotly.figure_factory as ff
 import base64
 from PIL import Image
@@ -74,8 +70,10 @@ def sidebar_bg(side_bg):
 side_bg = 'sidecolor.png'
 sidebar_bg(side_bg)
 
+# Main heading
 st.title('Data Quality Tool')
 
+# intro page holder
 intro_page = st.empty()
 
 #@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
@@ -103,9 +101,17 @@ def intro():
         image = Image.open('flow.png')
         st.image(image, width=None)
 
+# header section for single/multiple column analysis
+header_section = st.empty()
+
+# main columns for images and repair functionalities 
+img, repair_options, hist = st.columns([2.5,1,1])
+
 # Clear cache to start fresh session
 if st.sidebar.button("Start/Restart Session"):
     st.legacy_caching.caching.clear_cache()
+    for hist_holder in st.session_state.keys():
+        del st.session_state[hist_holder]
 
 # Import dataset in either of the three accepted formats xlsx, csv or txt
 selected_file = st.sidebar.file_uploader("Please upload file", type=["xlsx", "csv", "txt"], accept_multiple_files=False)
@@ -159,11 +165,10 @@ if main_options == "Data Summary":
         return dataset.profile_report()
 
     prog.progress(10)
-
+    ## create profile
     profile = profile_reporter(dataset)
-
     prog.progress(30)
-
+    ## show profile
     st_profile_report(profile)
 
     ## end progress bar
@@ -176,57 +181,64 @@ if main_options == "Data Summary":
             cwd = os.getcwd()
             prof_succ.success('Report saved to ' + cwd)
 
+# load history into session state
+if 'hist_holder' not in st.session_state:
+    st.session_state.hist_holder = []
+# print all history
+def input_hist():
+    '''print history in sidebar'''
+    with hist:
+        #st.markdown('History')
+        for item in st.session_state.hist_holder:
+            st.info(item)
+
+    
+
 
 #################################################################################################################################
 #############################################    Single Column Analysis   #######################################################
 #################################################################################################################################
 if main_options == 'Single Column Analysis':
-    st.subheader("Single Column Analysis")
 
-    ## start progress bar
-    prog = st.progress(0) 
+    with header_section.container():
+        st.subheader("Single Column Analysis")
 
-    ## Dropdown list of type of analysis
-    #Single_ops = 
-    ops = st.selectbox("Type of analysis", ["Missing Values", "Outliers", "Entry Type", "Distributions"])
+        ## start progress bar
+        prog = st.progress(0) 
 
-    ## Container to hold dropdown list of each column
-    col_holder = st.empty()
+        ## Dropdown list of type of analysis
+        #Single_ops = 
+        ops = st.selectbox("Type of analysis", ["Missing Values", "Outliers", "Entry Type", "Distributions"])
 
-    ## Insert column list into container
-    with col_holder.container():
-        column_list = list(dataset)
-        column_name = st.selectbox("Select column to analyse", column_list)
+        ## Container to hold dropdown list of each column
+        col_holder = st.empty()
 
-    ## show column type
-    coltype_holder = st.empty()
-    def update_coltype():
+        ## Insert column list into container
+        with col_holder.container():
+            column_list = list(dataset)
+            column_name = st.selectbox("Select column to analyse", column_list)
+
+        ## show column type
+        coltype_holder = st.empty()
         with coltype_holder.container():
             data_conv = dataset.convert_dtypes()
             col_type = data_conv[column_name].dtype
             st.info('{} column type is: {}'.format(column_name, col_type))
 
-    update_coltype()
 
-    ## end progress bar
-    prog.progress(100)
+        def update_coltype():
+            with coltype_holder.container():
+                data_conv = dataset.convert_dtypes()
+                col_type = data_conv[column_name].dtype
+                st.info('{} column type is: {}'.format(column_name, col_type))
 
-    #define global delete button
-    def delete_button(column_name):
-        '''Delete column at any point'''
-        ## remove column globally
-        if st.button("Delete column"):
-            dataset.drop(columns=[str(column_name)], axis=1, inplace=True)
-            st.success('{} successfully removed'.format(str(column_name)))
-            
-            with col_holder.container():
-                column_list = list(dataset)
-                column_name = st.selectbox("Select column to analyse", column_list)
+        ## end progress bar
+        prog.progress(100)
 
     ###############################################################################
     ## Missing values analysis ###################################################
     if ops == "Missing Values":
-        st.subheader("Missing Values Identification and Repair")
+        #st.subheader("Missing Values Identification and Repair")
         
         ### compute missing values and place them in dict
         def compute_missing(dataset, column_name):
@@ -252,16 +264,13 @@ if main_options == 'Single Column Analysis':
             colors = ['red', 'green']
             fig.update_traces(textfont_size=17,
                   marker=dict(colors=colors))
-            fig.update_layout(margin=dict(t=30, b=0, l=0, r=80), title_text='Null values in {} '.format(str(column_name)), title_x=0.3)
+            fig.update_layout(margin=dict(t=30, b=0, l=0, r=10), title_text='Null values in {} '.format(str(column_name)), title_x=0.3)
             fig['layout']['title']['font'] = dict(size=20)
             
-            return st.plotly_chart(fig, use_container_width=True)
-
-        ### Preprocessing data exploration 
-        pie, repair = st.columns([2,1])
+            return st.plotly_chart(fig, use_container_width=True) 
 
         ### Column with placeholder for pie chart
-        with pie:
+        with img:
             # make pie chart showing missing values percentage in selected column
             pie_holder = st.empty()
             
@@ -278,7 +287,7 @@ if main_options == 'Single Column Analysis':
         if dataset[column_name].isnull().sum() != 0:
 
             ### Column with missing values repair options
-            with repair:
+            with repair_options:
                 st.header('')
                 st.markdown('Perform Repair Action')
 
@@ -290,7 +299,9 @@ if main_options == 'Single Column Analysis':
                 
                     recompute_and_plot()
                     st.success('Null values successfully removed')
-
+                    ####### add to history tab
+                    st.session_state.hist_holder.append(f'Null removed from {column_name}')
+                    
                 #### replace missing values with mean  ############################################  
                 if st.button("Replace null values with mean"):
                     if dataset[column_name].dtype == "int64" or dataset[column_name].dtype == "float64":
@@ -299,12 +310,14 @@ if main_options == 'Single Column Analysis':
 
                         recompute_and_plot()
                         st.success('Null values successfully replaced with mean values')
+                        ####### add to history tab
+                        st.session_state.hist_holder.append(f'Null replaced with mean in {column_name}')
 
                     else:
                         st.warning("Numeric column only")
 
                 #### replace null values with nearest neighbours #####################################
-                if st.button("Replace null values with nearest neighbour"):
+                if st.button("Replace null with nearest neighbour"):
                     if dataset[column_name].dtype == "int64" or dataset[column_name].dtype == "float64":
                         int_data = dataset.select_dtypes(include=['int64', 'float64'])
 
@@ -322,13 +335,15 @@ if main_options == 'Single Column Analysis':
 
                         recompute_and_plot()
                         st.success('Null values successfully replaced with nearest neighbours')
+                        ####### add to history tab
+                        st.session_state.hist_holder.append(f'Null replaced with nearest neighbours in {column_name}')
 
 
                     else:
                         st.warning("Numeric column only")
 
                 #### repair missing value using user inpute ################################################
-                with st.expander('Replace with specified value'):
+                with st.expander('Replace null with input'):
                     if dataset[column_name].dtype == "int64" or dataset[column_name].dtype == "float64":
                         user_miss_input = st.number_input("Input", min_value=0)
                 
@@ -340,36 +355,56 @@ if main_options == 'Single Column Analysis':
                         ##### show results
                         recompute_and_plot()
                         st.success('Null values successfully replaced with user input')
+                        ####### add to history tab
+                        st.session_state.hist_holder.append(f'Null replaced with user input in {column_name}')
 
                 #### remove column ##############################################
                 if st.button("Remove column"):
+                    ####### add to history tab
+                    st.session_state.hist_holder.append(f'{column_name} removed')
+
                     dataset.drop(columns=[str(column_name)], axis=1, inplace=True)
                     st.success('{} successfully removed'.format(str(column_name)))
 
                     with col_holder.container():
                         column_list = list(dataset)
                         column_name = st.selectbox("Select column to analyse", column_list)
+                        st.info('{} column type is: {}'.format(column_name, col_type))
 
+                    with coltype_holder.container():
+                        st.empty()
                     recompute_and_plot()
+                    
                                                 
         else:
-            with repair:
-                st.info('There are no missing values in the column')
+            with img:
+                st.info('No missing values in the column')
+            with repair_options:
+                st.header('')
+                st.header('')
+                
                 #### remove column ##############################################
                 if st.button("Remove column"):
                     dataset.drop(columns=[str(column_name)], axis=1, inplace=True)
                     st.success('{} successfully removed'.format(str(column_name)))
+                    ####### add to history tab
+                    st.session_state.hist_holder.append(f'{column_name} removed')
 
                     with col_holder.container():
                         column_list = list(dataset)
                         column_name = st.selectbox("Select column to analyse", column_list)
+                        st.info('{} column type is: {}'.format(column_name, col_type))
 
+                    with coltype_holder.container():
+                        st.empty()
                     recompute_and_plot()
+                    
+    
 
     ##############################################################################
     ## Data type analysis #######################################################
     if ops == "Entry Type":
-        st.subheader("Entry Type Explorer")
+        #st.subheader("Entry Type Explorer")
 
         def float_digit(n: str) -> bool:
             try:
@@ -418,7 +453,7 @@ if main_options == 'Single Column Analysis':
         bar, rem = st.columns([2,1])
 
         ### column to hold datatype info and barplot
-        with bar:
+        with img:
             bar_holder = st.empty()
             #compute_datatype()
            
@@ -427,7 +462,7 @@ if main_options == 'Single Column Analysis':
                 barplotter(uniq_list_dtypes, uniq_counts)
         
         ### column holding remedy buttons 
-        with rem:
+        with repair_options:
             compute_datatype()
             st.subheader('')
             st.write('Perform repair action')
@@ -442,6 +477,8 @@ if main_options == 'Single Column Analysis':
                         st.success('numeric enteries removed')
                         with bar_holder.container():
                             barplotter(uniq_list_dtypes, uniq_counts)
+                        ####### add to history tab
+                        st.session_state.hist_holder.append(f'{column_name} numerics removed')
                     else:
                         st.info('No numeric enteries found')
 
@@ -453,6 +490,8 @@ if main_options == 'Single Column Analysis':
                         st.success('string entries removed')
                         with bar_holder.container():
                             barplotter(uniq_list_dtypes, uniq_counts)
+                        ####### add to history tab
+                        st.session_state.hist_holder.append(f'{column_name} strings removed')
                     else:
                         st.info('No string enteries found')
 
@@ -463,7 +502,9 @@ if main_options == 'Single Column Analysis':
                         compute_datatype()
                         st.success('other entries removed')
                         with bar_holder.container():
-                            barplotter(uniq_list_dtypes, uniq_counts) 
+                            barplotter(uniq_list_dtypes, uniq_counts)
+                        ####### add to history tab
+                        st.session_state.hist_holder.append(f'{column_name} other entries removed') 
                     else:
                         st.info('No other entries found')
 
@@ -479,7 +520,7 @@ if main_options == 'Single Column Analysis':
     if ops == "Outliers": # codes from https://machinelearningmastery.com/how-to-use-statistics-to-identify-outliers-in-data/ and 
                            # https://machinelearningmastery.com/a-gentle-introduction-to-normality-tests-in-python/
         
-        st.subheader("Outlier identification and removal")
+        #st.subheader("Outlier identification and removal")
 
         with col_holder.container():
             column_list = dataset.select_dtypes(include=[np.number]).columns
@@ -495,14 +536,14 @@ if main_options == 'Single Column Analysis':
         def box_plotter(dataset):
             '''This function makes a box plot'''
             fig = px.box(dataset[column_name])
-            fig.update_layout(margin=dict(t=30, b=0, l=0, r=80), title_text='Boxplot of {} '.format(str(column_name)), title_x=0.5)
+            fig.update_layout(margin=dict(t=30, b=0, l=0, r=10), title_text='Boxplot of {} '.format(str(column_name)), title_x=0.5)
 
             fig['layout']['title']['font'] = dict(size=20)
             
             return st.plotly_chart(fig, use_container_width=True)
         
         ### column holding boxplot
-        with box:
+        with img:
             box_plt = st.empty()
 
             with box_plt.container():
@@ -518,7 +559,7 @@ if main_options == 'Single Column Analysis':
                 st.warning('Column contains null values causing NA in statistic measure')
 
         ### column holding repair methods
-        with outlier_repair:
+        with repair_options:
             st.subheader('')
             st.write('Select repair method')
 
@@ -565,6 +606,9 @@ if main_options == 'Single Column Analysis':
                 lower, upper = data_mean - cut_off, data_mean + cut_off
                 ##### show results
                 outlier_removal_update(lower, upper)
+                if len(outliers) > 0:
+                    ####### add to history tab
+                    st.session_state.hist_holder.append(f'{len(outliers)} outliers removed from {column_name} using StD')
                 
 
             #### repair using interquartile range
@@ -578,6 +622,9 @@ if main_options == 'Single Column Analysis':
                 lower, upper = q25 - cut_off, q75 + cut_off
                 ##### show results
                 outlier_removal_update(lower, upper)
+                if len(outliers) > 0:
+                    ####### add to history tab
+                    st.session_state.hist_holder.append(f'{len(outliers)} outliers removed from {column_name} using IQR')
 
             #### repair outliers using user inpute
             with st.expander('User input'):
@@ -587,12 +634,15 @@ if main_options == 'Single Column Analysis':
                 if st.button('Execute'):  
                     ##### show results
                     outlier_removal_update(lower, upper)
+                    if len(outliers) > 0:
+                        ####### add to history tab
+                        st.session_state.hist_holder.append(f'{len(outliers)} outliers removed from {column_name} using Input')
 
 
     ############################################################################################################
     ## Distributions Analysis ##################################################################################
     if ops == "Distributions":
-        st.subheader('Column distribution')
+        #st.subheader('Column distribution')
 
         ### function to plot distributions
         def hist_plotter():
@@ -601,339 +651,326 @@ if main_options == 'Single Column Analysis':
                                 title_text='Distribution of {} '.format(str(column_name)), title_x=0.3)
             return st.plotly_chart(fig, use_container_width=True)
 
-        hist, stats = st.columns([2,1])
+        #hist, stats = st.columns([2,1])
 
-        with hist:
+        with img:
             hist_holder = st.empty()
 
-            with hist.container():
+            with img.container():
                 hist_plotter()
 
         ### show statistics for numeric columns
         if dataset[column_name].dtype == "int64" or dataset[column_name].dtype == "float64":
-            with stats:
+            with repair_options:
                 st.write('Summary statistics')
                 st.write(dataset[column_name].describe(include='all'))
+
+    input_hist()
+
+
 
 #####################################################################################################################################
 #################################################### Multiple Column Analysis #######################################################
 #####################################################################################################################################
 if main_options == 'Multiple Column Analysis':
-    st.subheader("Multiple Column Analysis")
 
-    ## start progress bar
-    prog = st.progress(0)
+    with header_section.container():
+        st.subheader("Multiple Column Analysis")
 
-    multi_ops = st.selectbox("Select Analysis", 
-                            ["Missing values", "Duplicates", "Correlations", "Distributions", "Scatter plots", "Anomaly Detection", "Clustering"])
+        ## start progress bar
+        prog = st.progress(0)
 
-    select_cols_hold = st.empty()
+        multi_ops = st.selectbox("Select Analysis", 
+                                ["Missing values", "Duplicates", "Correlations", "Distributions", "Scatter plots", "Anomaly Detection", "Clustering"])
 
-    with select_cols_hold.container():
-        select_cols = st.multiselect('Select columns', dataset.columns, default=list(dataset.columns))
+        select_cols_hold = st.empty()
 
-    if len(select_cols) > 0:
+        with select_cols_hold.container():
+            select_cols = st.multiselect('Select columns', dataset.columns, default=list(dataset.columns))
 
-        ### end progress bar
-        prog.progress(100)
+        if len(select_cols) > 0:
 
-        ###########################################################################################################
-        ### Missing values #########################################################################################
-        if multi_ops == "Missing values":
+            ### end progress bar
+            prog.progress(100)
 
-            mat, repair = st.columns([2,1])
-            
-            #### column to show missing values using matrix
-            with mat:
-                miss_holder = st.empty()
-                def miss_plot():
-                    fig = px.imshow(dataset[select_cols].notnull(), color_continuous_scale=px.colors.sequential.Blues)
-                    fig.update_layout(margin=dict(t=30, b=0, l=0, r=0), 
-                                        title_text='Missing values in dataset', 
-                                        title_x=0.45, coloraxis_showscale=False)
-                    
-                    return st.plotly_chart(fig, use_container_width=True)
+            ###########################################################################################################
+            ### Missing values #########################################################################################
+            if multi_ops == "Missing values":
 
-                ##### table of missing values
-                with miss_holder.container():    
-                    miss_plot()
-                    st.write('Total no of missing values in each column')
-                    dat = pd.DataFrame(dataset[select_cols].isnull().sum()).transpose()
-                    dat
-
-                ##### button to drop all missing values
-                with repair:
-                    if dataset[select_cols].isnull().sum().sum() != 0:
-                        st.header('')
-                        if st.button('Drop all missing values'):
-                            dataset.dropna(subset=select_cols, inplace=True)
-            
-                            with miss_holder.container():
-                                st.success('All missing values removed successfully')
-                                miss_plot()
-                                st.write('Total no of missing values in each column')
-                                dat = pd.DataFrame(dataset[select_cols].isnull().sum()).transpose()
-                                dat
+                #mat, repair = st.columns([2,1])
+                
+                #### column to show missing values using matrix
+                with img:
+                    miss_holder = st.empty()
+                    def miss_plot():
+                        fig = px.imshow(dataset[select_cols].notnull(), color_continuous_scale=px.colors.sequential.Blues)
+                        fig.update_layout(margin=dict(t=30, b=0, l=0, r=0), 
+                                            title_text='Missing values in dataset', 
+                                            title_x=0.45, coloraxis_showscale=False)
                         
-                        st.warning('Dropping all missing values in one go is not advised. Consider doing this through single column analysis instead')
+                        return st.plotly_chart(fig, use_container_width=True)
+
+                    ##### table of missing values
+                    with miss_holder.container():    
+                        miss_plot()
+                        st.write('Total no of missing values in each column')
+                        dat = pd.DataFrame(dataset[select_cols].isnull().sum()).transpose()
+                        dat
+
+                    ##### button to drop all missing values
+                    with repair_options:
+                        if dataset[select_cols].isnull().sum().sum() != 0:
+                            st.header('')
+                            if st.button('Drop all missing values'):
+                                dataset.dropna(subset=select_cols, inplace=True)
+                
+                                with miss_holder.container():
+                                    st.success('All missing values removed successfully')
+                                    miss_plot()
+                                    st.write('Total no of missing values in each column')
+                                    dat = pd.DataFrame(dataset[select_cols].isnull().sum()).transpose()
+                                    dat
+                                ####### add to history tab
+                                st.session_state.hist_holder.append('All null values dropped')
                             
-                        #### repair missing value using user inpute ################################################
-                        with st.expander('Replace with specified value'):
+                            st.warning('Dropping all missing values in one go is not advised. Consider doing this through single column analysis instead')
+                                
+                        else:
+                            st.header('')
+                            st.info('There are no missing values in the selected columns')
 
-                            ####### use number input for numeric columns  
-                            if len(dataset[select_cols].dtypes[dataset[select_cols].dtypes == 'int64']
-                                    [dataset[select_cols].dtypes == 'float64']) == len(dataset[select_cols].dtypes):
-                                user_miss_input = st.number_input("Input")
 
-                                if st.button('Replace'):
-                                    dataset[select_cols].fillna(value=user_miss_input, inplace=True)
-                                    ##### show results
-                                    with miss_holder.container():
-                                        st.success('Null values successfully replaced with user input')
-                                        miss_plot()
+            ############################################################################################################
+            ### Duplicate Analysis ######################################################################################
+            if multi_ops == 'Duplicates':
 
-                            ######## use text input for nominal columns 
-                            elif len(dataset[select_cols].dtypes[dataset[select_cols].dtypes != 'int64']
-                                    [dataset[select_cols].dtypes != 'float64']) == len(dataset[select_cols].dtypes):
-                                user_miss_input = st.text_input("Input")
+                #dup, drop_dup = st.columns([2,1])
 
-                                if st.button('Replace'):
-                                    dataset[select_cols].fillna(value=user_miss_input, inplace=True)
-                                    ##### show results
-                                    with miss_holder.container():
-                                        st.success('Null values successfully replaced with user iput')
-                                        miss_plot()
+                #### check duplicates 
+                def dup_df():
+                    '''Check if duplicates exist and drop'''
+                    dup_ent = dataset[select_cols][dataset[select_cols].duplicated()]
+                    with img:
+                        dup_holder = st.empty()
 
+                    if len(dup_ent) > 0:
+                        
+                        with dup_holder.container():
+                            st.info(f'There are {len(dup_ent)} duplicate enteries in the selected columns')
+                            st.write(dup_ent)
+                        
+                        ###### drop duplicate entries
+                        with repair_options:
+                            if st.button('Drop duplicates'):
+                                dataset.drop_duplicates(subset=select_cols,inplace=True)
+                                with dup_holder.container():
+                                    st.empty()
+                                    st.success('Duplicate rows removed successfully')
+                                
+                                ####### add to history tab
+                                st.session_state.hist_holder.append(f' Duplicate rows removed from {len(select_cols)} columns')
                             
                     else:
-                        st.info('There are no missing values in the selected columns')
+                        st.success('There are no duplicate entries in the selected columns')
 
+                dup_df()
 
-        ############################################################################################################
-        ### Duplicate Analysis ######################################################################################
-        if multi_ops == 'Duplicates':
-
-            dup, drop_dup = st.columns([2,1])
-
-            #### check duplicates 
-            def dup_df():
-                '''Check if duplicates exist and drop'''
-                dup_ent = dataset[select_cols][dataset[select_cols].duplicated()]
-                with dup:
-                    dup_holder = st.empty()
-
-                if len(dup_ent) > 0:
-                    
-                    with dup_holder.container():
-                        st.info(f'There are {len(dup_ent)} duplicate enteries in the selected columns')
-                        st.write(dup_ent)
-                    
-                    ###### drop duplicate entries
-                    with drop_dup:
-                        if st.button('Drop duplicates'):
-                            dataset.drop_duplicates(subset=select_cols,inplace=True)
-                            with dup_holder.container():
-                                st.empty()
-                                st.success('Duplicate rows removed successfully')
-                         
-                else:
-                    st.success('There are no duplicate entries in the selected columns')
-
-            dup_df()
-
-        ###########################################################################################################
-        ### Anomaly Detection ######################################################################################
-        if multi_ops == "Anomaly Detection":
-            with select_cols_hold.container():
-                st.empty()
-            
-            #### selection columns for numeric and categorical data
-            box_col, options = st.columns([2,1])
-            with options:
-                num_data = st.selectbox('Select Y values (numeric)', dataset.select_dtypes(include=[np.number]).columns)
-                cat_data = st.selectbox('Select X values (categorical)', dataset.select_dtypes(exclude=[np.number]).columns)
-
-            #### boxplot of outliers
-            with box_col:
-                def multi_box_plot():
-                    fig = px.box(dataset, x=str(cat_data), y=str(num_data))
-                    fig.update_layout(margin=dict(t=30, b=0, l=0, r=20), 
-                                        title_text=f'Boxplot of {num_data} versus {cat_data}', 
-                                        title_x=0.5)
-
-                    return st.plotly_chart(fig, use_container_width=True)
-
-                multi_box_plot()
-
-        
-        ###########################################################################################################
-        ### Distributions #########################################################################################
-        if multi_ops == "Distributions":
-
-            if dataset.isna().sum().sum() > 0:
-                st.warning('Dataset contains missing values, this may lead to errors in plots')
-            with select_cols_hold.container():
-                st.empty()
-            
-            #### get x and y data for plot
-            hist_col, options = st.columns([2,1])
-            with options:
-                x_data = st.selectbox('Select X values (categorical)', dataset.select_dtypes(exclude=[np.number]).columns)
-                y_data = st.selectbox('Select Y values (numeric)', dataset.select_dtypes(include=[np.number]).columns)
-                bar_col = st.selectbox('Select column to colour plot by', dataset.columns)
+            ###########################################################################################################
+            ### Anomaly Detection ######################################################################################
+            if multi_ops == "Anomaly Detection":
+                with select_cols_hold.container():
+                    st.empty()
                 
-            #### make bar plot
-            with hist_col:
-                #@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
-                def multi_hist_plotter():
-                    fig = px.bar(dataset, x=x_data, y=y_data, color=bar_col, color_continuous_scale=px.colors.sequential.Blues)
-                    fig.update_layout(margin=dict(t=30, b=0, l=0, r=20), 
-                                title_text=f'Distribution of {x_data} by {y_data}', title_x=0.3)
-                    return st.plotly_chart(fig, use_container_width=True)
+                #### selection columns for numeric and categorical data
+                #box_col, options = st.columns([2,1])
+                with repair_options:
+                    num_data = st.selectbox('Select Y values (numeric)', dataset.select_dtypes(include=[np.number]).columns)
+                    cat_data = st.selectbox('Select X values (categorical)', dataset.select_dtypes(exclude=[np.number]).columns)
 
-                multi_hist_plotter()
+                #### boxplot of outliers
+                with img:
+                    def multi_box_plot():
+                        fig = px.box(dataset, x=str(cat_data), y=str(num_data))
+                        fig.update_layout(margin=dict(t=30, b=0, l=0, r=20), 
+                                            title_text=f'Boxplot of {num_data} versus {cat_data}', 
+                                            title_x=0.5)
 
-        ###########################################################################################################
-        ### Scatter plots #########################################################################################
-        if multi_ops == "Scatter plots":
-            if dataset.isna().sum().sum() > 0:
-                st.warning('Dataset contains missing values, this may lead to errors in plots')
-            with select_cols_hold.container():
-                st.empty()
+                        return st.plotly_chart(fig, use_container_width=True)
+
+                    multi_box_plot()
+
             
-            #### get x and y data for scatter 
-            scatter, scatter_opt = st.columns([2,1])
-            with scatter_opt:
-                x_dat = st.selectbox('Select X values', dataset.select_dtypes(include=[np.number]).columns)
-                y_dat = st.selectbox('Select Y values', dataset.select_dtypes(include=[np.number]).columns)
-                bar_colscat = st.selectbox('Select column to colour plot', dataset.columns)
+            ###########################################################################################################
+            ### Distributions #########################################################################################
+            if multi_ops == "Distributions":
 
-            #### make sactter plot 
-            with scatter:
-                #@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
-                def scatter_plotter():
-                    fig = px.scatter(dataset, x=x_dat, y=y_dat, color=bar_colscat, color_continuous_scale=px.colors.sequential.Blues)
-                    fig.update_layout(margin=dict(t=30, b=0, l=0, r=20), 
-                                title_text=f'Scatter plot of {y_dat} by {x_dat}', title_x=0.3)
-
-                    return st.plotly_chart(fig, use_container_width=True)
-
-                scatter_plotter()
+                if dataset.isna().sum().sum() > 0:
+                    st.warning('Dataset contains missing values, this may lead to errors in plots')
+                with select_cols_hold.container():
+                    st.empty()
                 
+                #### get x and y data for plot
+                #hist_col, options = st.columns([2,1])
+                with repair_options:
+                    x_data = st.selectbox('Select X values (categorical)', dataset.select_dtypes(exclude=[np.number]).columns)
+                    y_data = st.selectbox('Select Y values (numeric)', dataset.select_dtypes(include=[np.number]).columns)
+                    bar_col = st.selectbox('Select column to colour plot by', dataset.columns)
+                    
+                #### make bar plot
+                with img:
+                    #@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
+                    def multi_hist_plotter():
+                        fig = px.bar(dataset, x=x_data, y=y_data, color=bar_col, color_continuous_scale=px.colors.sequential.Blues)
+                        fig.update_layout(margin=dict(t=30, b=0, l=0, r=20), 
+                                    title_text=f'Distribution of {x_data} by {y_data}', title_x=0.3)
+                        return st.plotly_chart(fig, use_container_width=True)
 
-        ###########################################################################################################
-        ## Clustering ### from https://www.kaggle.com/code/dhanyajothimani/basic-visualization-and-clustering-in-python/notebook ########
-        if multi_ops == "Clustering":
-            if dataset.isna().sum().sum() > 0:
-                st.warning('Dataset contains missing values, this may lead to errors in plots')
-            
-            with select_cols_hold.container():
-                st.empty()
-            
-            st.write('Clustering with numeric columns')
-            f_list = st.multiselect('Select X values', dataset.select_dtypes(include=[np.number]).columns, 
-                                    default=list(dataset.select_dtypes(include=[np.number]).columns))
+                    multi_hist_plotter()
 
-            if len(f_list) > 0:
-
+            ###########################################################################################################
+            ### Scatter plots #########################################################################################
+            if multi_ops == "Scatter plots":
+                if dataset.isna().sum().sum() > 0:
+                    st.warning('Dataset contains missing values, this may lead to errors in plots')
+                with select_cols_hold.container():
+                    st.empty()
+                
                 #### get x and y data for scatter 
-                clust, clust_opt = st.columns([2,1])
-                with clust_opt:
+                #scatter, scatter_opt = st.columns([2,1])
+                with repair_options:
+                    x_dat = st.selectbox('Select X values', dataset.select_dtypes(include=[np.number]).columns)
+                    y_dat = st.selectbox('Select Y values', dataset.select_dtypes(include=[np.number]).columns)
+                    bar_colscat = st.selectbox('Select column to colour plot', dataset.columns)
 
-                    f_dat = dataset[f_list]
-
-                    ss = StandardScaler()
-                    ss.fit_transform(np.array(f_dat).reshape(-1,1))
-
-                    @st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
-                    def n_clusters_finder(dat):
-                        
-                        clust_range = [2,3,4,5,6,7,8,9,10,11,12,13,14,15]
-
-                        #clust_n = []
-                        sil_avg = []
-
-                        for n_clusters in clust_range:
-                            clusterer = KMeans(n_clusters=n_clusters, random_state=10)
-                            cluster_labels = clusterer.fit_predict(dat)
-                            silhouette_avg = silhouette_score(dat, cluster_labels)
-                            sil_avg.append(silhouette_avg)
-
-                        return clust_range[np.argmax(sil_avg)]
-
-                    nclust = n_clusters_finder(f_dat)
-
-                    @st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
-                    def cluster(dat, nclust):
-                        model = KMeans(nclust)
-                        model.fit(dat)
-                        #model = AgglomerativeClustering(n_clusters=nclust, affinity = 'euclidean', linkage = 'ward')
-                        clust_labels = model.predict(dat)
-                        return (clust_labels)
-
-                    clust_labels = cluster(f_dat, nclust)
-                    kmeans = pd.DataFrame(clust_labels)
-                    f_dat.insert((f_dat.shape[1]),'agglomerative',kmeans)
-                    
-                    x_dat = st.selectbox('Select X values', f_list)
-                    y_dat = st.selectbox('Select Y values', f_list)
-                    #bar_colscat = st.selectbox('Select column to colour plot', dataset.columns)
-
-                with clust:
-                    st.info(f'Optimal number of clusters obtained from silhouette method is {nclust}')
-
-                    def clust_plot():
-
-                        fig = px.scatter(f_dat, x=x_dat, y=y_dat, color=kmeans[0])
+                #### make sactter plot 
+                with img:
+                    #@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
+                    def scatter_plotter():
+                        fig = px.scatter(dataset, x=x_dat, y=y_dat, color=bar_colscat, color_continuous_scale=px.colors.sequential.Blues)
                         fig.update_layout(margin=dict(t=30, b=0, l=0, r=20), 
                                     title_text=f'Scatter plot of {y_dat} by {x_dat}', title_x=0.3)
 
                         return st.plotly_chart(fig, use_container_width=True)
+
+                    scatter_plotter()
                     
-                    clust_plot()
-            else:
-                st.info('Please select columns')
 
+            ###########################################################################################################
+            ## Clustering ### from https://www.kaggle.com/code/dhanyajothimani/basic-visualization-and-clustering-in-python/notebook ########
+            if multi_ops == "Clustering":
+                if dataset.isna().sum().sum() > 0:
+                    st.warning('Dataset contains missing values, this may lead to errors in plots')
+                
+                with select_cols_hold.container():
+                    st.empty()
+                
+                st.write('Clustering with numeric columns')
+                f_list = st.multiselect('Select X values', dataset.select_dtypes(include=[np.number]).columns, 
+                                        default=list(dataset.select_dtypes(include=[np.number]).columns))
 
-        ###########################################################################################################
-        ## Correlations ###########################################################################################
-        if multi_ops == "Correlations":
-            #st.info('Please refer to Data Summary section for Correlations')
+                if len(f_list) > 0:
 
-            #### get numeric columns 
-            num_data = dataset.select_dtypes(include=[np.number])
+                    #### get x and y data for scatter 
+                    #clust, clust_opt = st.columns([2,1])
+                    with repair_options:
 
-            with select_cols_hold.container():
-                select_cols = st.multiselect('Select columns', num_data.columns, default=list(num_data.columns))
-                st.info('Showing numeric columns only')
+                        f_dat = dataset[f_list]
 
-                corr = dataset[select_cols].corr().round(3)
+                        ss = StandardScaler()
+                        ss.fit_transform(np.array(f_dat).reshape(-1,1))
 
-                ##### make heatmap corrplot of numeric columns
-                if len(select_cols) > 0:
-                    def corr_plot():
-                        fig = ff.create_annotated_heatmap(z=corr.to_numpy(), 
-                                        x=corr.index.tolist(), 
-                                        y=corr.columns.tolist(), 
-                                        colorscale=px.colors.diverging.RdBu,
-                                        zmin=-1,zmax=1,
-                                        showscale=True,
-                                        font_colors=['black']
-                                        )
+                        @st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
+                        def n_clusters_finder(dat):
+                            
+                            clust_range = [2,3,4,5,6,7,8,9,10,11,12,13,14,15]
 
-                        fig.update_layout(margin=dict(t=30, b=0, l=0, r=80), 
-                                        title_text='Correlation plot', 
-                                        title_x=0.5)
-                        fig.update_xaxes(side="bottom")
+                            #clust_n = []
+                            sil_avg = []
 
-                        return st.plotly_chart(fig, use_container_width=True)
+                            for n_clusters in clust_range:
+                                clusterer = KMeans(n_clusters=n_clusters, random_state=10)
+                                cluster_labels = clusterer.fit_predict(dat)
+                                silhouette_avg = silhouette_score(dat, cluster_labels)
+                                sil_avg.append(silhouette_avg)
 
-                    corr_plot()
+                            return clust_range[np.argmax(sil_avg)]
+
+                        nclust = n_clusters_finder(f_dat)
+
+                        @st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
+                        def cluster(dat, nclust):
+                            model = KMeans(nclust)
+                            model.fit(dat)
+                            #model = AgglomerativeClustering(n_clusters=nclust, affinity = 'euclidean', linkage = 'ward')
+                            clust_labels = model.predict(dat)
+                            return (clust_labels)
+
+                        clust_labels = cluster(f_dat, nclust)
+                        kmeans = pd.DataFrame(clust_labels)
+                        f_dat.insert((f_dat.shape[1]),'agglomerative',kmeans)
+                        
+                        x_dat = st.selectbox('Select X values', f_list)
+                        y_dat = st.selectbox('Select Y values', f_list)
+                        #bar_colscat = st.selectbox('Select column to colour plot', dataset.columns)
+
+                    with img:
+                        st.info(f'Optimal number of clusters obtained from silhouette method is {nclust}')
+
+                        def clust_plot():
+
+                            fig = px.scatter(f_dat, x=x_dat, y=y_dat, color=kmeans[0])
+                            fig.update_layout(margin=dict(t=30, b=0, l=0, r=20), 
+                                        title_text=f'Scatter plot of {y_dat} by {x_dat}', title_x=0.3)
+
+                            return st.plotly_chart(fig, use_container_width=True)
+                        
+                        clust_plot()
                 else:
                     st.info('Please select columns')
 
-    else:
-        st.info('Please select columns')
+
+            ###########################################################################################################
+            ## Correlations ###########################################################################################
+            if multi_ops == "Correlations":
+                #st.info('Please refer to Data Summary section for Correlations')
+
+                #### get numeric columns 
+                num_data = dataset.select_dtypes(include=[np.number])
+
+                with select_cols_hold.container():
+                    select_cols = st.multiselect('Select columns', num_data.columns, default=list(num_data.columns))
+                    st.info('Showing numeric columns only')
+
+                    corr = dataset[select_cols].corr().round(3)
+
+                with img:
+                    ##### make heatmap corrplot of numeric columns
+                    if len(select_cols) > 0:
+                        def corr_plot():
+                            fig = ff.create_annotated_heatmap(z=corr.to_numpy(), 
+                                            x=corr.index.tolist(), 
+                                            y=corr.columns.tolist(), 
+                                            colorscale=px.colors.diverging.RdBu,
+                                            zmin=-1,zmax=1,
+                                            showscale=True,
+                                            font_colors=['black']
+                                            )
+
+                            fig.update_layout(margin=dict(t=30, b=0, l=0, r=10), 
+                                            title_text='Correlation plot', 
+                                            title_x=0.5)
+                            fig.update_xaxes(side="bottom")
+
+                            return st.plotly_chart(fig, use_container_width=True)
+
+                        corr_plot()
+                    else:
+                        st.info('Please select columns')
+
+        else:
+            st.info('Please select columns')
+
+    input_hist()
 
 
 ####################################################################################################################################
