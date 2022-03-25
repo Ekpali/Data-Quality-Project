@@ -182,9 +182,18 @@ if main_options == "Data Summary":
             cwd = os.getcwd()
             prof_succ.success('Report saved to ' + cwd)
 
+
+with hist:
+    if len(st.session_state.hist_holder) != 0:
+        if st.button('Clear history'):
+            for hist_holder in st.session_state.keys():
+                del st.session_state[hist_holder]
+
 # load history into session state
 if 'hist_holder' not in st.session_state:
     st.session_state.hist_holder = []
+
+
 # print all history
 def input_hist():
     '''print history in sidebar'''
@@ -192,7 +201,6 @@ def input_hist():
         #st.markdown('History')
         for item in st.session_state.hist_holder:
             st.info(item)
-
     
 
 
@@ -293,7 +301,7 @@ if main_options == 'Single Column Analysis':
                 st.markdown('Perform Repair Action')
 
                 #### remove missing ###############################################################
-                if st.button('Remove rows with null values'):        
+                if st.button('Remove null values'):        
                     missing_index = dataset[dataset[column_name].isnull()].index.tolist()
                     dataset.drop(missing_index, inplace=True)
                     dataset.reset_index(drop=True, inplace=True)
@@ -304,7 +312,7 @@ if main_options == 'Single Column Analysis':
                     st.session_state.hist_holder.append(f'Null removed from {column_name}')
                     
                 #### replace missing values with mean  ############################################  
-                if st.button("Replace null values with mean"):
+                if st.button("Replace null with mean"):
                     if dataset[column_name].dtype == "int64" or dataset[column_name].dtype == "float64":
                         #missing_index = dataset[dataset[column_name].isnull()].index.tolist()
                         dataset[column_name].fillna(dataset[column_name].mean(), inplace=True)
@@ -318,7 +326,7 @@ if main_options == 'Single Column Analysis':
                         st.warning("Numeric column only")
 
                 #### replace null values with nearest neighbours #####################################
-                if st.button("Replace null with nearest neighbour"):
+                if st.button("Replace null with KNN"):
                     if dataset[column_name].dtype == "int64" or dataset[column_name].dtype == "float64":
                         int_data = dataset.select_dtypes(include=['int64', 'float64'])
 
@@ -346,10 +354,10 @@ if main_options == 'Single Column Analysis':
                 #### repair missing value using user inpute ################################################
                 with st.expander('Replace null with input'):
                     if dataset[column_name].dtype == "int64" or dataset[column_name].dtype == "float64":
-                        user_miss_input = st.number_input("Input", min_value=0)
+                        user_miss_input = st.number_input("Input number", min_value=0)
                 
                     else:
-                        user_miss_input = st.text_input("Input")
+                        user_miss_input = st.text_input("Input text")
 
                     if st.button('Replace'):
                         dataset[column_name].fillna(value=user_miss_input, inplace=True)
@@ -378,8 +386,8 @@ if main_options == 'Single Column Analysis':
                     
                                                 
         else:
-            with img:
-                st.info('No missing values in the column')
+            # with img:
+            #     st.info('No missing values in the column')
             with repair_options:
                 st.header('')
                 st.header('')
@@ -722,7 +730,7 @@ if main_options == 'Multiple Column Analysis':
                     with repair_options:
                         if dataset[select_cols].isnull().sum().sum() != 0:
                             st.header('')
-                            if st.button('Drop all missing values'):
+                            if st.button('Drop all null values'):
                                 dataset.dropna(subset=select_cols, inplace=True)
                 
                                 with miss_holder.container():
@@ -732,7 +740,7 @@ if main_options == 'Multiple Column Analysis':
                                     dat = pd.DataFrame(dataset[select_cols].isnull().sum()).transpose()
                                     dat
                                 ####### add to history tab
-                                st.session_state.hist_holder.append('All null values dropped')
+                                st.session_state.hist_holder.append('Dropped all null values')
                             
                             st.warning('Dropping all missing values in one go is not advised. Consider doing this through single column analysis instead')
                                 
@@ -813,17 +821,18 @@ if main_options == 'Multiple Column Analysis':
                 #### get x and y data for plot
                 #hist_col, options = st.columns([2,1])
                 with repair_options:
-                    x_data = st.selectbox('Select X values (categorical)', dataset.select_dtypes(exclude=[np.number]).columns)
                     y_data = st.selectbox('Select Y values (numeric)', dataset.select_dtypes(include=[np.number]).columns)
-                    bar_col = st.selectbox('Select column to colour plot by', dataset.columns)
+                    x_data = st.selectbox('Select X values (categorical)', dataset.select_dtypes(exclude=[np.number]).columns)
+                    color_by = [None] + list(dataset.columns)
+                    bar_col = st.selectbox('Select column to colour plot by', color_by)
                     
                 #### make bar plot
                 with img:
                     #@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
                     def multi_hist_plotter():
-                        fig = px.bar(dataset, x=x_data, y=y_data, color=bar_col, color_continuous_scale=px.colors.sequential.Blues)
+                        fig = px.bar(dataset, x=x_data, y=y_data, color=bar_col)
                         fig.update_layout(margin=dict(t=30, b=0, l=0, r=20), 
-                                    title_text=f'Distribution of {x_data} by {y_data}', title_x=0.3)
+                                    title_text=f'Distribution of {y_data} by {x_data}', title_x=0.3)
                         return st.plotly_chart(fig, use_container_width=True)
 
                     multi_hist_plotter()
@@ -841,7 +850,8 @@ if main_options == 'Multiple Column Analysis':
                 with repair_options:
                     x_dat = st.selectbox('Select X values', dataset.select_dtypes(include=[np.number]).columns)
                     y_dat = st.selectbox('Select Y values', dataset.select_dtypes(include=[np.number]).columns)
-                    bar_colscat = st.selectbox('Select column to colour plot', dataset.columns)
+                    color_by = [None] + list(dataset.columns)
+                    bar_colscat = st.selectbox('Select column to colour plot', color_by)
 
                 #### make sactter plot 
                 with img:
