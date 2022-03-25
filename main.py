@@ -183,11 +183,11 @@ if main_options == "Data Summary":
             prof_succ.success('Report saved to ' + cwd)
 
 
-with hist:
-    if len(st.session_state.hist_holder) != 0:
-        if st.button('Clear history'):
-            for hist_holder in st.session_state.keys():
-                del st.session_state[hist_holder]
+# with hist:
+#     if len(st.session_state.hist_holder) != 0:
+#         if st.button('Clear history'):
+#             for hist_holder in st.session_state.keys():
+#                 del st.session_state[hist_holder]
 
 # load history into session state
 if 'hist_holder' not in st.session_state:
