@@ -26,50 +26,50 @@ from scipy.stats import shapiro
 
 st.set_page_config(layout = "wide")
 
-# Set background image courtesy of soft-nougat on https://discuss.streamlit.io/t/how-do-i-use-a-background-image-on-streamlit/5067/17
-def set_bg_hack(main_bg):
-    '''
-    A function to unpack an image from root folder and set as bg.
+# # Set background image courtesy of soft-nougat on https://discuss.streamlit.io/t/how-do-i-use-a-background-image-on-streamlit/5067/17
+# def set_bg_hack(main_bg):
+#     '''
+#     A function to unpack an image from root folder and set as bg.
  
-    Returns
-    -------
-    The background.
-    '''
-    # set bg name
-    main_bg_ext = "png"
+#     Returns
+#     -------
+#     The background.
+#     '''
+#     # set bg name
+#     main_bg_ext = "png"
         
-    st.markdown(
-         f"""
-         <style>
-         .stApp {{
-             background: url(data:image/{main_bg_ext};base64,{base64.b64encode(open(main_bg, "rb").read()).decode()});
-             background-size: cover
-         }}
-         </style>
-         """,
-         unsafe_allow_html=True
-     )
+#     st.markdown(
+#          f"""
+#          <style>
+#          .stApp {{
+#              background: url(data:image/{main_bg_ext};base64,{base64.b64encode(open(main_bg, "rb").read()).decode()});
+#              background-size: cover
+#          }}
+#          </style>
+#          """,
+#          unsafe_allow_html=True
+#      )
 
-set_bg_hack('background.jpg')
+# set_bg_hack('background.jpg')
 
-# Set side image courtesy of soft-nougat on https://discuss.streamlit.io/t/how-do-i-use-a-background-image-on-streamlit/5067/17
-def sidebar_bg(side_bg):
+# # Set side image courtesy of soft-nougat on https://discuss.streamlit.io/t/how-do-i-use-a-background-image-on-streamlit/5067/17
+# def sidebar_bg(side_bg):
 
-   side_bg_ext = 'png'
+#    side_bg_ext = 'png'
 
-   st.markdown(
-      f"""
-      <style>
-      [data-testid="stSidebar"] > div:first-child {{
-          background: url(data:image/{side_bg_ext};base64,{base64.b64encode(open(side_bg, "rb").read()).decode()});
-      }}
-      </style>
-      """,
-      unsafe_allow_html=True,
-      )
+#    st.markdown(
+#       f"""
+#       <style>
+#       [data-testid="stSidebar"] > div:first-child {{
+#           background: url(data:image/{side_bg_ext};base64,{base64.b64encode(open(side_bg, "rb").read()).decode()});
+#       }}
+#       </style>
+#       """,
+#       unsafe_allow_html=True,
+#       )
 
-side_bg = 'sidecolor.png'
-sidebar_bg(side_bg)
+# side_bg = 'sidecolor.png'
+# sidebar_bg(side_bg)
 
 # Main heading
 st.title('Data Quality Tool')
@@ -200,7 +200,7 @@ def input_hist():
     with hist:
         #st.markdown('History')
         for item in st.session_state.hist_holder:
-            st.info(item)
+            st.button(f'{item}   ✖')
     
 
 
@@ -432,18 +432,14 @@ if main_options == 'Single Column Analysis':
             list_dtypes = []
             digit_index = []
             str_index = []
-            other_index = []
 
             for index, element in enumerate(dataset[column_name]):
                 if (str(element).isnumeric()) or float_digit(str(element)) == True:
                     list_dtypes.append('numeric')
                     digit_index.append(index)
-                elif (str(element).isalpha()):
+                else:
                     list_dtypes.append('string')
                     str_index.append(index)
-                else:
-                    list_dtypes.append('other')
-                    other_index.append(index)
 
             uniq_list_dtypes = Counter(list_dtypes).keys()
             uniq_counts = Counter(list_dtypes).values()
@@ -504,19 +500,6 @@ if main_options == 'Single Column Analysis':
                     else:
                         st.info('No string enteries found')
 
-                #### delete other entries #################################################################
-                if st.button('Delete other entries'):
-                    if len(other_index) >0:
-                        dataset.drop(other_index, inplace=True)
-                        compute_datatype()
-                        st.success('other entries removed')
-                        with bar_holder.container():
-                            barplotter(uniq_list_dtypes, uniq_counts)
-                        ####### add to history tab
-                        st.session_state.hist_holder.append(f'{column_name} other entries removed') 
-                    else:
-                        st.info('No other entries found')
-
             elif len(uniq_list_dtypes) == 1:
                 st.info('Column has one entry type')
 
@@ -535,117 +518,122 @@ if main_options == 'Single Column Analysis':
             column_list = dataset.select_dtypes(include=[np.number]).columns
             column_name = st.selectbox("Select column to analyse", column_list)
             st.info('Showing numeric columns only')
+    
+        if len(list(column_list)) > 0:
 
-        ### update coltype_holder
-        update_coltype()
+            ### update coltype_holder
+            update_coltype()
 
-        ### columns to hold plot and repair methods
-        box, outlier_repair = st.columns([2,1])
+            def box_plotter(dataset):
+                '''This function makes a box plot'''
+                fig = px.box(dataset[column_name])
+                fig.update_layout(margin=dict(t=30, b=0, l=0, r=10), title_text='Boxplot of {} '.format(str(column_name)), title_x=0.5)
 
-        def box_plotter(dataset):
-            '''This function makes a box plot'''
-            fig = px.box(dataset[column_name])
-            fig.update_layout(margin=dict(t=30, b=0, l=0, r=10), title_text='Boxplot of {} '.format(str(column_name)), title_x=0.5)
-
-            fig['layout']['title']['font'] = dict(size=20)
-            
-            return st.plotly_chart(fig, use_container_width=True)
+                fig['layout']['title']['font'] = dict(size=20)
+                
+                return st.plotly_chart(fig, use_container_width=True)
         
-        ### column holding boxplot
-        with img:
-            box_plt = st.empty()
+        
 
-            with box_plt.container():
-                box_plotter(dataset)
-            
-            #### suggestion area ------------------------
-            st.write('Key statistics')
-            alpha = 0.05
-            stat, p = shapiro(dataset[column_name])
-            out_stat = pd.DataFrame([{'CI':'5%','p-value':p, 'statistic':stat}])
-            st.write(out_stat)
-            if dataset[column_name].isnull().sum() > 0:
-                st.warning('Column contains null values causing NA in statistic measure')
+            ### column holding boxplot
+            with img:
+                box_plt = st.empty()
 
-        ### column holding repair methods
-        with repair_options:
-            st.subheader('')
-            st.write('Select repair method')
-
-            ##### show dataframe of key values
-            def show_outlier_df(lower, upper):
-                global outliers 
-                outliers = [x for x in dataset[column_name] if x < lower or x > upper]
-                out_df = pd.DataFrame({'No of outliers': len(outliers), 'Lower': lower, 'Upper': upper}, index=[0])
-                st.write(out_df)
-            
-            ##### update boxplot
-            def update_boxplot():
                 with box_plt.container():
                     box_plotter(dataset)
-
-            ##### print success message
-            def outlier_success_print():
-                if len(outliers) > 0:
-                    st.success('{} outliers removed successfully'.format(len(outliers)))
-
-                else:
-                    st.info('No identified outliers')
-
-            #### show outliers in df, remove outliers and update boxplot
-            def outlier_removal_update(lower, upper):
-                    #show outliers
-                    show_outlier_df(lower, upper)
-                    ##### identify and remove outliers
-                    out_idx = dataset[(dataset[column_name] < lower) | (dataset[column_name] > upper)].index.tolist()
-                    dataset.drop(out_idx, inplace=True)
-                    dataset.reset_index(drop=True, inplace=True)
-                    ##### update boxplot
-                    update_boxplot()
-                    ##### print
-                    outlier_success_print()
-
-            #### repair using standard deviation
-            if st.button('Standard deviation'):
-
-                ##### calculate summary statistics
-                data_mean, data_std = mean(dataset[column_name]), std(dataset[column_name])
-                ##### identify outliers
-                cut_off = data_std * 3
-                lower, upper = data_mean - cut_off, data_mean + cut_off
-                ##### show results
-                outlier_removal_update(lower, upper)
-                if len(outliers) > 0:
-                    ####### add to history tab
-                    st.session_state.hist_holder.append(f'{len(outliers)} outliers removed from {column_name} using StD')
                 
+                #### suggestion area ------------------------
+                st.write('Key statistics')
+                alpha = 0.05
+                stat, p = shapiro(dataset[column_name])
+                out_stat = pd.DataFrame([{'CI':'5%','p-value':p, 'statistic':stat}])
+                st.write(out_stat)
+                if dataset[column_name].isnull().sum() > 0:
+                    st.warning('Column contains null values causing NA in statistic measure')
 
-            #### repair using interquartile range
-            if st.button('Interquartile range'):
+            ### column holding repair methods
+            with repair_options:
+                st.subheader('')
+                st.write('Select repair method')
 
-                ##### calculate interquartile range
-                q25, q75 = np.quantile(dataset[column_name], 0.25), np.quantile(dataset[column_name], 0.75)
-                iqr = q75 - q25
-                ##### calculate the outlier cutoff
-                cut_off = iqr * 1.5
-                lower, upper = q25 - cut_off, q75 + cut_off
-                ##### show results
-                outlier_removal_update(lower, upper)
-                if len(outliers) > 0:
-                    ####### add to history tab
-                    st.session_state.hist_holder.append(f'{len(outliers)} outliers removed from {column_name} using IQR')
+                ##### show dataframe of key values
+                def show_outlier_df(lower, upper):
+                    global outliers 
+                    outliers = [x for x in dataset[column_name] if x < lower or x > upper]
+                    out_df = pd.DataFrame({'No of outliers': len(outliers), 'Lower': lower, 'Upper': upper}, index=[0])
+                    st.write(out_df)
+                
+                ##### update boxplot
+                def update_boxplot():
+                    with box_plt.container():
+                        box_plotter(dataset)
 
-            #### repair outliers using user inpute
-            with st.expander('User input'):
-                lower = st.number_input("lower bound", min_value=0, step=10)
-                upper = st.number_input("upper bound", min_value=0, step=10)
+                ##### print success message
+                def outlier_success_print():
+                    if len(outliers) > 0:
+                        st.success('{} outliers removed successfully'.format(len(outliers)))
 
-                if st.button('Execute'):  
+                    else:
+                        st.info('No identified outliers')
+
+                #### show outliers in df, remove outliers and update boxplot
+                def outlier_removal_update(lower, upper):
+                        #show outliers
+                        show_outlier_df(lower, upper)
+                        ##### identify and remove outliers
+                        out_idx = dataset[(dataset[column_name] < lower) | (dataset[column_name] > upper)].index.tolist()
+                        dataset.drop(out_idx, inplace=True)
+                        dataset.reset_index(drop=True, inplace=True)
+                        ##### update boxplot
+                        update_boxplot()
+                        ##### print
+                        outlier_success_print()
+
+                #### repair using standard deviation
+                if st.button('Standard deviation'):
+
+                    ##### calculate summary statistics
+                    data_mean, data_std = mean(dataset[column_name]), std(dataset[column_name])
+                    ##### identify outliers
+                    cut_off = data_std * 3
+                    lower, upper = data_mean - cut_off, data_mean + cut_off
                     ##### show results
                     outlier_removal_update(lower, upper)
                     if len(outliers) > 0:
                         ####### add to history tab
-                        st.session_state.hist_holder.append(f'{len(outliers)} outliers removed from {column_name} using Input')
+                        st.session_state.hist_holder.append(f'{len(outliers)} outliers removed from {column_name} using StD')
+                    
+
+                #### repair using interquartile range
+                if st.button('Interquartile range'):
+
+                    ##### calculate interquartile range
+                    q25, q75 = np.quantile(dataset[column_name], 0.25), np.quantile(dataset[column_name], 0.75)
+                    iqr = q75 - q25
+                    ##### calculate the outlier cutoff
+                    cut_off = iqr * 1.5
+                    lower, upper = q25 - cut_off, q75 + cut_off
+                    ##### show results
+                    outlier_removal_update(lower, upper)
+                    if len(outliers) > 0:
+                        ####### add to history tab
+                        st.session_state.hist_holder.append(f'{len(outliers)} outliers removed from {column_name} using IQR')
+
+                #### repair outliers using user inpute
+                with st.expander('User input'):
+                    lower = st.number_input("lower bound", min_value=0, step=10)
+                    upper = st.number_input("upper bound", min_value=0, step=10)
+
+                    if st.button('Execute'):  
+                        ##### show results
+                        outlier_removal_update(lower, upper)
+                        if len(outliers) > 0:
+                            ####### add to history tab
+                            st.session_state.hist_holder.append(f'{len(outliers)} outliers removed from {column_name} using Input')
+        else:
+            with coltype_holder.container():
+                st.empty()
+            st.warning('Please select column')
 
 
     ############################################################################################################
@@ -796,17 +784,21 @@ if main_options == 'Multiple Column Analysis':
                     num_data = st.selectbox('Select Y values (numeric)', dataset.select_dtypes(include=[np.number]).columns)
                     cat_data = st.selectbox('Select X values (categorical)', dataset.select_dtypes(exclude=[np.number]).columns)
 
-                #### boxplot of outliers
-                with img:
-                    def multi_box_plot():
-                        fig = px.box(dataset, x=str(cat_data), y=str(num_data))
-                        fig.update_layout(margin=dict(t=30, b=0, l=0, r=20), 
-                                            title_text=f'Boxplot of {num_data} versus {cat_data}', 
-                                            title_x=0.5)
+                if len(dataset.select_dtypes(include=[np.number]).columns) > 0 and len(dataset.select_dtypes(exclude=[np.number]).columns) > 0:
 
-                        return st.plotly_chart(fig, use_container_width=True)
+                    #### boxplot of outliers
+                    with img:
+                        def multi_box_plot():
+                            fig = px.box(dataset, x=str(cat_data), y=str(num_data))
+                            fig.update_layout(margin=dict(t=30, b=0, l=0, r=20), 
+                                                title_text=f'Boxplot of {num_data} versus {cat_data}', 
+                                                title_x=0.5)
 
-                    multi_box_plot()
+                            return st.plotly_chart(fig, use_container_width=True)
+
+                        multi_box_plot()
+                else:
+                    st.warning('Please select columns')
 
             
             ###########################################################################################################
@@ -892,11 +884,13 @@ if main_options == 'Multiple Column Analysis':
 
                         @st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
                         def n_clusters_finder(dat):
+                            '''determine optimum number of clusters'''
                             
                             clust_range = [2,3,4,5,6,7,8,9,10,11,12,13,14,15]
 
                             #clust_n = []
                             sil_avg = []
+
 
                             for n_clusters in clust_range:
                                 clusterer = KMeans(n_clusters=n_clusters, random_state=10)
@@ -937,7 +931,7 @@ if main_options == 'Multiple Column Analysis':
                         
                         clust_plot()
                 else:
-                    st.info('Please select columns')
+                    st.warning('Please select columns')
 
 
             ###########################################################################################################
@@ -976,10 +970,10 @@ if main_options == 'Multiple Column Analysis':
 
                         corr_plot()
                     else:
-                        st.info('Please select columns')
+                        st.warning('Please select columns')
 
         else:
-            st.info('Please select columns')
+            st.warning('Please select columns')
 
     input_hist()
 
@@ -1001,6 +995,3 @@ st.sidebar.download_button(
     file_name='cleaned_data.csv',
     mime='text/csv',
 )
-
-# if __name__ == '__main__':
-#     ...
