@@ -200,7 +200,8 @@ def input_hist():
     with hist:
         #st.markdown('History')
         for item in st.session_state.hist_holder:
-            st.button(f'{item}   ✖')
+            # st.button(f'{item}   ✖')
+            st.info(item)
     
 
 
