@@ -72,7 +72,7 @@ st.set_page_config(layout = "wide")
 # sidebar_bg(side_bg)
 
 # Main heading
-st.title('Data Quality Tool')
+st.title('Data Profiling and Quality Analysis Tool')
 
 # intro page holder
 intro_page = st.empty()
@@ -182,12 +182,16 @@ if main_options == "Data Summary":
             cwd = os.getcwd()
             prof_succ.success('Report saved to ' + cwd)
 
+with hist:
+    st.markdown('History')
+    if st.button('Clear history'):
+        if len(st.session_state.hist_holder) > 0:
+            for hist_holder in st.session_state.keys():
+                del st.session_state[hist_holder]
+        else:
+            st.warning('No recorded history')
+            
 
-# with hist:
-#     if len(st.session_state.hist_holder) != 0:
-#         if st.button('Clear history'):
-#             for hist_holder in st.session_state.keys():
-#                 del st.session_state[hist_holder]
 
 # load history into session state
 if 'hist_holder' not in st.session_state:
@@ -198,9 +202,8 @@ if 'hist_holder' not in st.session_state:
 def input_hist():
     '''print history in sidebar'''
     with hist:
-        #st.markdown('History')
+        
         for item in st.session_state.hist_holder:
-            # st.button(f'{item}   ✖')
             st.info(item)
     
 
@@ -414,6 +417,7 @@ if main_options == 'Single Column Analysis':
     ##############################################################################
     ## Data type analysis #######################################################
     if ops == "Entry Type":
+        
         #st.subheader("Entry Type Explorer")
 
         def float_digit(n: str) -> bool:
@@ -453,13 +457,12 @@ if main_options == 'Single Column Analysis':
             #fig.update_traces(textfont_size=30)
             fig['layout']['title']['font'] = dict(size=20)
             return st.plotly_chart(fig, use_container_width=True)
- 
-
-        ### Columns to hold barplot and remedy
-        bar, rem = st.columns([2,1])
 
         ### column to hold datatype info and barplot
+        
         with img:
+            if dataset[column_name].isna().sum().sum() > 0:
+                    st.warning('Column contains missing values that may cause misinterpretation, please handle them first')
             bar_holder = st.empty()
             #compute_datatype()
            
@@ -470,8 +473,11 @@ if main_options == 'Single Column Analysis':
         ### column holding remedy buttons 
         with repair_options:
             compute_datatype()
-            st.subheader('')
-            st.write('Perform repair action')
+            st.header('')
+            st.header('')
+            st.header('')
+            st.header('')
+            st.write('Repair suggestion')
 
             if len(uniq_list_dtypes) > 1:
 
@@ -639,29 +645,110 @@ if main_options == 'Single Column Analysis':
 
     ############################################################################################################
     ## Distributions Analysis ##################################################################################
-    if ops == "Distributions":
-        #st.subheader('Column distribution')
+    if ops == "Distributions":                        
 
         ### function to plot distributions
-        def hist_plotter():
+        def histogram_plotter():
             fig = px.histogram(dataset[column_name], nbins=40)
             fig.update_layout(margin=dict(t=30, b=0, l=0, r=80), 
                                 title_text='Distribution of {} '.format(str(column_name)), title_x=0.3)
             return st.plotly_chart(fig, use_container_width=True)
 
-        #hist, stats = st.columns([2,1])
-
         with img:
             hist_holder = st.empty()
+            with hist_holder.container():
+                histogram_plotter()
 
-            with img.container():
-                hist_plotter()
+        with repair_options:
+            ### show statistics and repair for numeric columns
+            if dataset[column_name].dtype == "int64" or dataset[column_name].dtype == "float64":
+                st.header('')
+                st.write('Select operation')
+                #### remove range using user inpute
+                with st.expander('Remove range of values'):
+                    lower = st.number_input("lower bound", min_value=0, step=10)
+                    upper = st.number_input("upper bound", min_value=0, step=10)
 
-        ### show statistics for numeric columns
-        if dataset[column_name].dtype == "int64" or dataset[column_name].dtype == "float64":
-            with repair_options:
-                st.write('Summary statistics')
-                st.write(dataset[column_name].describe(include='all'))
+                    if st.button('Execute'):
+                        out_idx = dataset[(dataset[column_name] > lower) & (dataset[column_name] < upper)].index.tolist() 
+                        if len(out_idx) > 0:  
+                            dataset.drop(out_idx, inplace=True)
+                            dataset.reset_index(drop=True, inplace=True)
+                            ####### add to history tab
+                            st.session_state.hist_holder.append(f'Values between {lower} and {upper} removed from {column_name}')
+                            with hist_holder.container():
+                                histogram_plotter()
+                                st.write('Summary statistics')
+                                st.write(dataset[column_name].describe(include='all'))
+                        else:
+                            st.warning(f'There are no values between {lower} and {upper} in {column_name}')
+                
+                # #### replace range using user inpute
+                # with st.expander('Replace range of values'):
+                #     lower = st.number_input("lower bound", min_value=0, step=10)
+                #     upper = st.number_input("upper bound", min_value=0, step=10)
+
+                #     if st.button('Execute'):
+                #         out_idx = dataset[(dataset[column_name] > lower) & (dataset[column_name] < upper)].index.tolist() 
+                #         if len(out_idx) > 0:  
+                #             dataset.drop(out_idx, inplace=True)
+                #             dataset.reset_index(drop=True, inplace=True)
+                #             ####### add to history tab
+                #             st.session_state.hist_holder.append(f'Values between {lower} and {upper} removed from {column_name}')
+                #             with hist_holder.container():
+                #                 histogram_plotter()
+                #                 st.write('Summary statistics')
+                #                 st.write(dataset[column_name].describe(include='all'))
+                #         else:
+                #             st.warning(f'There are no values between {lower} and {upper} in {column_name}')
+
+            else:
+                st.header('')
+                st.write('Select operation')
+                #### remove values of specific classes from column
+                with st.expander('Remove value'):
+                    class_name = st.text_input("input class (case sensitive)")
+
+                    if st.button('Execute'):
+                        out_idx_s = dataset[dataset[column_name] == class_name].index.tolist()
+
+                        if len(out_idx_s) > 0:  
+                            dataset.drop(out_idx_s, inplace=True)
+                            dataset.reset_index(drop=True, inplace=True)
+                            ####### add to history tab
+                            st.session_state.hist_holder.append(f'All {class_name} entries removed from {column_name}')
+                            with hist_holder.container():
+                                histogram_plotter()
+
+                        else:
+                            st.warning(f'No entries with name {class_name}')
+                    
+                #### replace values of specific classes from column
+                with st.expander('Replace value'):
+                    target_class = st.text_input("Target class (case sensitive)")
+                    replace_class = st.text_input("Replace with (case sensitive)")
+
+                    if st.button('Replace'):
+                        out_idx_s = dataset[dataset[column_name] == target_class].index.tolist()
+
+                        if len(out_idx_s) > 0:
+                            if replace_class is not None:  
+                                dataset[column_name][out_idx_s] = replace_class
+                                dataset.reset_index(drop=True, inplace=True)
+                                ####### add to history tab
+                                st.session_state.hist_holder.append(f'All {target_class} in {column_name} replaced with {replace_class}')
+                                with hist_holder.container():
+                                    histogram_plotter()
+                            else:
+                                st.warning('Replacement is missing')
+
+                        else:
+                            st.warning(f'No entries with name {class_name}')
+
+
+
+
+                    
 
     input_hist()
 
@@ -694,8 +781,6 @@ if main_options == 'Multiple Column Analysis':
             ###########################################################################################################
             ### Missing values #########################################################################################
             if multi_ops == "Missing values":
-
-                #mat, repair = st.columns([2,1])
                 
                 #### column to show missing values using matrix
                 with img:
@@ -721,6 +806,7 @@ if main_options == 'Multiple Column Analysis':
                             st.header('')
                             if st.button('Drop all null values'):
                                 dataset.dropna(subset=select_cols, inplace=True)
+                                dataset.reset_index(drop=True, inplace=True)
                 
                                 with miss_holder.container():
                                     st.success('All missing values removed successfully')
@@ -761,6 +847,7 @@ if main_options == 'Multiple Column Analysis':
                         with repair_options:
                             if st.button('Drop duplicates'):
                                 dataset.drop_duplicates(subset=select_cols,inplace=True)
+                                dataset.reset_index(drop=True, inplace=True)
                                 with dup_holder.container():
                                     st.empty()
                                     st.success('Duplicate rows removed successfully')
@@ -945,7 +1032,7 @@ if main_options == 'Multiple Column Analysis':
 
                 with select_cols_hold.container():
                     select_cols = st.multiselect('Select columns', num_data.columns, default=list(num_data.columns))
-                    st.info('Showing numeric columns only')
+                    st.info('Showing numeric columns only, see data summary for plot including categorical columns')
 
                     corr = dataset[select_cols].corr().round(3)
 
