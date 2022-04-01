@@ -182,20 +182,24 @@ if main_options == "Data Summary":
             cwd = os.getcwd()
             prof_succ.success('Report saved to ' + cwd)
 
-with hist:
-    st.markdown('History')
-    if st.button('Clear history'):
-        if len(st.session_state.hist_holder) > 0:
-            for hist_holder in st.session_state.keys():
-                del st.session_state[hist_holder]
-        else:
-            st.warning('No recorded history')
-            
-
 
 # load history into session state
 if 'hist_holder' not in st.session_state:
     st.session_state.hist_holder = []
+
+# delete history buttion 
+def history_button():
+    '''delete history from session state'''
+    with hist:
+        st.markdown('History')
+        if st.button('Clear history'):
+            if len(st.session_state.hist_holder) > 0:
+                for hist_holder in st.session_state.keys():
+                    del st.session_state[hist_holder]
+            else:
+                st.warning('No recorded history')
+    if 'hist_holder' not in st.session_state:
+        st.session_state.hist_holder = []
 
 
 # print all history
@@ -212,6 +216,7 @@ def input_hist():
 #############################################    Single Column Analysis   #######################################################
 #################################################################################################################################
 if main_options == 'Single Column Analysis':
+    history_button()
 
     with header_section.container():
         st.subheader("Single Column Analysis")
@@ -758,6 +763,7 @@ if main_options == 'Single Column Analysis':
 #################################################### Multiple Column Analysis #######################################################
 #####################################################################################################################################
 if main_options == 'Multiple Column Analysis':
+    history_button()
 
     with header_section.container():
         st.subheader("Multiple Column Analysis")
