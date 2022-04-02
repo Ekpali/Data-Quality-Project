@@ -750,11 +750,6 @@ if main_options == 'Single Column Analysis':
                         else:
                             st.warning(f'No entries with name {class_name}')
 
-
-
-
-                    
-
     input_hist()
 
 
@@ -821,13 +816,34 @@ if main_options == 'Multiple Column Analysis':
                                     dat = pd.DataFrame(dataset[select_cols].isnull().sum()).transpose()
                                     dat
                                 ####### add to history tab
-                                st.session_state.hist_holder.append('Dropped all null values')
+                                st.session_state.hist_holder.append(f'Dropped all null values in {len(select_cols)} columns')
                             
-                            st.warning('Dropping all missing values in one go is not advised. Consider doing this through single column analysis instead')
+                            st.warning('Consider single column analysis for null values instead')
                                 
                         else:
                             st.header('')
                             st.info('There are no missing values in the selected columns')
+                        
+                        ###### remove selected columns
+                        with st.expander('Remove selected columns'):
+                            del_columns = st. multiselect('Remove multiple columns', dataset.columns)
+                            if len(del_columns) > 0:
+                                if st.button("Remove column"):
+                                    dataset.drop(columns=del_columns, inplace=True)
+                                    #dataset.reset_index(drop=True, inplace=True)
+                                    st.success('{} successfully removed'.format(del_columns))
+                                    with select_cols_hold.container():
+                                        select_cols = st.multiselect('Select columns', dataset.columns, default=list(dataset.columns))
+                                    ####### add to history tab
+                                    st.session_state.hist_holder.append(f'{del_columns} removed')
+                                    with miss_holder.container():
+                                        miss_plot()
+                                        st.write('Total no of missing values in each column')
+                                        dat = pd.DataFrame(dataset[select_cols].isnull().sum()).transpose()
+                                        dat
+
+                            else:
+                                st.info('Please select columns')
 
 
             ############################################################################################################
