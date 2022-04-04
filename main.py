@@ -98,7 +98,7 @@ def intro():
             * Anomaly detection 
             * Clusters
         """
-        st.info('Clcicking the Restart Session button clears the cache of the system, undoing all perfomed steps')
+        st.info('Clicking the Restart Session button clears the cache of the system, undoing all perfomed steps')
     with flow:
         st.header('')
         st.header('')
