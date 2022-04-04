@@ -79,9 +79,9 @@ intro_page = st.empty()
 
 #@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
 def intro():
-    description, flow = st.columns([5,1])
+    description, flow = st.columns([2.5,1])
     with description:
-        st.subheader('Welcome to the data exploration, quality check and repair tool 🕵')
+        st.subheader('Welcome to the data exploration, quality analysis and repair tool 🕵')
         st.write('This tool supports the following features:')
         """ 
         * Data profiling using Pandas Profiler 
@@ -98,7 +98,10 @@ def intro():
             * Anomaly detection 
             * Clusters
         """
+        st.info('Clcicking the Restart Session button clears the cache of the system, undoing all perfomed steps')
     with flow:
+        st.header('')
+        st.header('')
         image = Image.open('flow.png')
         st.image(image, width=None)
 
@@ -109,7 +112,7 @@ header_section = st.empty()
 img, repair_options, hist = st.columns([2.5,1,1])
 
 # Clear cache to start fresh session
-if st.sidebar.button("Start/Restart Session"):
+if st.sidebar.button("Restart Session"):
     st.legacy_caching.caching.clear_cache()
     for hist_holder in st.session_state.keys():
         del st.session_state[hist_holder]
@@ -145,13 +148,13 @@ dataset = file_uploader()
 
 #############################################################################################################################################
 ## Main functions (contains a sidebar of the compatible functions) ########### 
-main_options = st.sidebar.radio("Select Task", ["Data Summary", "Single Column Analysis", "Multiple Column Analysis"])
+main_options = st.sidebar.radio("Select Task", ["Data Profile", "Single Column Analysis", "Multiple Column Analysis"])
 
 ########################################################################################
 # DQ Summary #################
-if main_options == "Data Summary":
+if main_options == "Data Profile":
 
-    st.subheader('Data Summary Profile')
+    #st.subheader('Data Profile')
 
     ## start progress bar
     prog = st.progress(0)  
