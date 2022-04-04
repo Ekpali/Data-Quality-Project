@@ -84,7 +84,7 @@ def intro():
         st.subheader('Welcome to the data exploration, quality analysis and repair tool 🕵')
         st.write('This tool supports the following features:')
         """ 
-        * Data profiling using Pandas Profiler 
+        * Data profiling using Pandas Profiler (highly recommended step prior to further analysis)
         * Single Column Analysis
             * Missing value identification, removal and imputation 
             * Identification and removal of Outliers
