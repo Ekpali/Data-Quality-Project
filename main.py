@@ -963,8 +963,9 @@ if main_options == 'Multiple Column Analysis':
             ## Clustering ### from https://www.kaggle.com/code/dhanyajothimani/basic-visualization-and-clustering-in-python/notebook ########
             if multi_ops == "Clustering":
                 if dataset.isna().sum().sum() > 0:
-                    st.warning('Dataset contains missing values, this may lead to errors in plots')
-                
+                    st.warning('Dataset contains missing values, please handle them to activate clustering')
+
+                else:                
                     with select_cols_hold.container():
                         st.empty()
                     
