@@ -98,15 +98,21 @@ def intro():
             * Anomaly detection 
             * Clusters
         """
-        st.info('Clicking the Restart Session button clears the cache of the system, undoing all perfomed steps')
+        
     with flow:
         st.header('')
         st.header('')
         image = Image.open('flow.png')
         st.image(image, width=None)
+    st.info('Clicking the Restart Session button clears the cache of the system, undoing all perfomed steps')
+
 
 # header section for single/multiple column analysis
 header_section = st.empty()
+
+#########################################################################################################################################
+################################### Start of main functionalities #######################################################################
+
 
 # main columns for images and repair functionalities 
 img, repair_options, hist = st.columns([2.5,1,1])
@@ -116,6 +122,7 @@ if st.sidebar.button("Restart Session"):
     st.legacy_caching.caching.clear_cache()
     for hist_holder in st.session_state.keys():
         del st.session_state[hist_holder]
+    #st.sidebar.info('Deletes all steps')
 
 # Import dataset in either of the three accepted formats xlsx, csv or txt
 selected_file = st.sidebar.file_uploader("Please upload file", type=["xlsx", "csv", "txt"], accept_multiple_files=False)
@@ -143,16 +150,19 @@ def file_uploader():
 
     return df 
 
+
 # load dataset
 dataset = file_uploader()
 
 #############################################################################################################################################
-## Main functions (contains a sidebar of the compatible functions) ########### 
-main_options = st.sidebar.radio("Select Task", ["Data Profile", "Single Column Analysis", "Multiple Column Analysis"])
+## Main functions (contains a sidebar of the compatible functions) ###########
+st.sidebar.header('')
+st.sidebar.header('')
+main_options = st.sidebar.radio("Select Task", ["Data Profile/Summary", "Single Column Analysis", "Multiple Column Analysis"])
 
 ########################################################################################
 # DQ Summary #################
-if main_options == "Data Profile":
+if main_options == "Data Profile/Summary":
 
     #st.subheader('Data Profile')
 
@@ -483,8 +493,6 @@ if main_options == 'Single Column Analysis':
             compute_datatype()
             st.header('')
             st.header('')
-            st.header('')
-            st.header('')
             st.write('Repair suggestion')
 
             if len(uniq_list_dtypes) > 1:
@@ -531,8 +539,7 @@ if main_options == 'Single Column Analysis':
 
         with col_holder.container():
             column_list = dataset.select_dtypes(include=[np.number]).columns
-            column_name = st.selectbox("Select column to analyse", column_list)
-            st.info('Showing numeric columns only')
+            column_name = st.selectbox("Select column (numeric only)", column_list)
     
         if len(list(column_list)) > 0:
 
@@ -1056,7 +1063,7 @@ if main_options == 'Multiple Column Analysis':
 
                 with select_cols_hold.container():
                     select_cols = st.multiselect('Select columns (numeric only)', num_data.columns, default=list(num_data.columns))
-                    st.info('Showing numeric columns only, see data summary for plot including categorical columns')
+                    st.info('Showing numeric columns only, see data profile for plot including categorical columns')
 
                     corr = dataset[select_cols].corr().round(3)
 
@@ -1093,7 +1100,6 @@ if main_options == 'Multiple Column Analysis':
 ####################################################################################################################################
 # Download dataset after processing
 data = dataset.to_csv(index=False).encode('utf-8')
-st.sidebar.header('')
 st.sidebar.header('')
 st.sidebar.header('')
 st.sidebar.header('')
