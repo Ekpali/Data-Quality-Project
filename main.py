@@ -980,8 +980,7 @@ if main_options == 'Multiple Column Analysis':
                 with select_cols_hold.container():
                     st.empty()
                 
-                st.write('Clustering with numeric columns')
-                f_list = st.multiselect('Select X values', dataset.select_dtypes(include=[np.number]).columns, 
+                f_list = st.multiselect('Select columns (numeric only)', dataset.select_dtypes(include=[np.number]).columns, 
                                         default=list(dataset.select_dtypes(include=[np.number]).columns))
 
                 if len(f_list) > 0:
@@ -1056,7 +1055,7 @@ if main_options == 'Multiple Column Analysis':
                 num_data = dataset.select_dtypes(include=[np.number])
 
                 with select_cols_hold.container():
-                    select_cols = st.multiselect('Select columns', num_data.columns, default=list(num_data.columns))
+                    select_cols = st.multiselect('Select columns (numeric only)', num_data.columns, default=list(num_data.columns))
                     st.info('Showing numeric columns only, see data summary for plot including categorical columns')
 
                     corr = dataset[select_cols].corr().round(3)
