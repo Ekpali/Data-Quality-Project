@@ -698,25 +698,6 @@ if main_options == 'Single Column Analysis':
                         else:
                             st.warning(f'There are no values between {lower} and {upper} in {column_name}')
                 
-                # #### replace range using user inpute
-                # with st.expander('Replace range of values'):
-                #     lower = st.number_input("lower bound", min_value=0, step=10)
-                #     upper = st.number_input("upper bound", min_value=0, step=10)
-
-                #     if st.button('Execute'):
-                #         out_idx = dataset[(dataset[column_name] > lower) & (dataset[column_name] < upper)].index.tolist() 
-                #         if len(out_idx) > 0:  
-                #             dataset.drop(out_idx, inplace=True)
-                #             dataset.reset_index(drop=True, inplace=True)
-                #             ####### add to history tab
-                #             st.session_state.hist_holder.append(f'Values between {lower} and {upper} removed from {column_name}')
-                #             with hist_holder.container():
-                #                 histogram_plotter()
-                #                 st.write('Summary statistics')
-                #                 st.write(dataset[column_name].describe(include='all'))
-                #         else:
-                #             st.warning(f'There are no values between {lower} and {upper} in {column_name}')
-
             else:
                 st.header('')
                 st.write('Select operation')
@@ -942,8 +923,8 @@ if main_options == 'Multiple Column Analysis':
                 with img:
                     #@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
                     def multi_hist_plotter():
-                        fig = px.bar(dataset, x=x_data, y=y_data, color=bar_col)
-                        fig.update_layout(margin=dict(t=30, b=0, l=0, r=20), 
+                        fig = px.bar(data_frame=dataset.groupby([x_data]).mean().reset_index(), x=x_data, y=y_data, color=bar_col)
+                        fig.update_layout(margin=dict(t=30, b=0, l=0, r=20), yaxis_title=f"average {y_data}",
                                     title_text=f'Distribution of {y_data} by {x_data}', title_x=0.3)
                         return st.plotly_chart(fig, use_container_width=True)
 
