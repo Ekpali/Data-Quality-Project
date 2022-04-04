@@ -965,73 +965,73 @@ if main_options == 'Multiple Column Analysis':
                 if dataset.isna().sum().sum() > 0:
                     st.warning('Dataset contains missing values, this may lead to errors in plots')
                 
-                with select_cols_hold.container():
-                    st.empty()
-                
-                f_list = st.multiselect('Select columns (numeric only)', dataset.select_dtypes(include=[np.number]).columns, 
-                                        default=list(dataset.select_dtypes(include=[np.number]).columns))
+                    with select_cols_hold.container():
+                        st.empty()
+                    
+                    f_list = st.multiselect('Select columns (numeric only)', dataset.select_dtypes(include=[np.number]).columns, 
+                                            default=list(dataset.select_dtypes(include=[np.number]).columns))
 
-                if len(f_list) > 0:
+                    if len(f_list) > 0:
 
-                    #### get x and y data for scatter 
-                    #clust, clust_opt = st.columns([2,1])
-                    with repair_options:
+                        #### get x and y data for scatter 
+                        #clust, clust_opt = st.columns([2,1])
+                        with repair_options:
 
-                        f_dat = dataset[f_list]
+                            f_dat = dataset[f_list]
 
-                        ss = StandardScaler()
-                        ss.fit_transform(np.array(f_dat).reshape(-1,1))
+                            ss = StandardScaler()
+                            ss.fit_transform(np.array(f_dat).reshape(-1,1))
 
-                        @st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
-                        def n_clusters_finder(dat):
-                            '''determine optimum number of clusters'''
+                            @st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
+                            def n_clusters_finder(dat):
+                                '''determine optimum number of clusters'''
+                                
+                                clust_range = [2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+
+                                #clust_n = []
+                                sil_avg = []
+
+
+                                for n_clusters in clust_range:
+                                    clusterer = KMeans(n_clusters=n_clusters, random_state=10)
+                                    cluster_labels = clusterer.fit_predict(dat)
+                                    silhouette_avg = silhouette_score(dat, cluster_labels)
+                                    sil_avg.append(silhouette_avg)
+
+                                return clust_range[np.argmax(sil_avg)]
+
+                            nclust = n_clusters_finder(f_dat)
+
+                            @st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
+                            def cluster(dat, nclust):
+                                model = KMeans(nclust)
+                                model.fit(dat)
+                                #model = AgglomerativeClustering(n_clusters=nclust, affinity = 'euclidean', linkage = 'ward')
+                                clust_labels = model.predict(dat)
+                                return (clust_labels)
+
+                            clust_labels = cluster(f_dat, nclust)
+                            kmeans = pd.DataFrame(clust_labels)
+                            f_dat.insert((f_dat.shape[1]),'agglomerative',kmeans)
                             
-                            clust_range = [2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+                            x_dat = st.selectbox('Select X values', f_list)
+                            y_dat = st.selectbox('Select Y values', f_list)
+                            #bar_colscat = st.selectbox('Select column to colour plot', dataset.columns)
 
-                            #clust_n = []
-                            sil_avg = []
+                        with img:
+                            st.info(f'Optimal number of clusters obtained from silhouette method is {nclust}')
 
+                            def clust_plot():
 
-                            for n_clusters in clust_range:
-                                clusterer = KMeans(n_clusters=n_clusters, random_state=10)
-                                cluster_labels = clusterer.fit_predict(dat)
-                                silhouette_avg = silhouette_score(dat, cluster_labels)
-                                sil_avg.append(silhouette_avg)
+                                fig = px.scatter(f_dat, x=x_dat, y=y_dat, color=kmeans[0])
+                                fig.update_layout(margin=dict(t=30, b=0, l=0, r=20), 
+                                            title_text=f'Scatter plot of {y_dat} by {x_dat}', title_x=0.3)
 
-                            return clust_range[np.argmax(sil_avg)]
-
-                        nclust = n_clusters_finder(f_dat)
-
-                        @st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
-                        def cluster(dat, nclust):
-                            model = KMeans(nclust)
-                            model.fit(dat)
-                            #model = AgglomerativeClustering(n_clusters=nclust, affinity = 'euclidean', linkage = 'ward')
-                            clust_labels = model.predict(dat)
-                            return (clust_labels)
-
-                        clust_labels = cluster(f_dat, nclust)
-                        kmeans = pd.DataFrame(clust_labels)
-                        f_dat.insert((f_dat.shape[1]),'agglomerative',kmeans)
-                        
-                        x_dat = st.selectbox('Select X values', f_list)
-                        y_dat = st.selectbox('Select Y values', f_list)
-                        #bar_colscat = st.selectbox('Select column to colour plot', dataset.columns)
-
-                    with img:
-                        st.info(f'Optimal number of clusters obtained from silhouette method is {nclust}')
-
-                        def clust_plot():
-
-                            fig = px.scatter(f_dat, x=x_dat, y=y_dat, color=kmeans[0])
-                            fig.update_layout(margin=dict(t=30, b=0, l=0, r=20), 
-                                        title_text=f'Scatter plot of {y_dat} by {x_dat}', title_x=0.3)
-
-                            return st.plotly_chart(fig, use_container_width=True)
-                        
-                        clust_plot()
-                else:
-                    st.warning('Please select columns')
+                                return st.plotly_chart(fig, use_container_width=True)
+                            
+                            clust_plot()
+                    else:
+                        st.warning('Please select columns')
 
 
             ###########################################################################################################
