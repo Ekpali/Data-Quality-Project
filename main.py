@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas_profiling
 from streamlit_pandas_profiling import st_profile_report
-import matplotlib.pyplot as plt 
 import pandas as pd
 import numpy as np
 import openpyxl
@@ -73,6 +72,7 @@ st.set_page_config(layout = "wide")
 
 # Main heading
 st.title('Data Profiling and Quality Analysis Tool')
+st.markdown(f"""[![Ekpali - Data-Quality-Project](https://img.shields.io/static/v1?label=Ekpali&message=Data-Quality-Project&color=blue&logo=github)](https://github.com/Ekpali/Data-Quality-Project "Go to GitHub repo")""")
 
 # intro page holder
 intro_page = st.empty()
@@ -113,7 +113,6 @@ header_section = st.empty()
 #########################################################################################################################################
 ################################### Start of main functionalities #######################################################################
 
-
 # main columns for images and repair functionalities 
 img, repair_options, hist = st.columns([2.5,1,1])
 
@@ -127,9 +126,10 @@ if st.sidebar.button("Restart Session"):
 # Import dataset in either of the three accepted formats xlsx, csv or txt
 selected_file = st.sidebar.file_uploader("Please upload file", type=["xlsx", "csv", "txt"], accept_multiple_files=False)
 
+# Function to import dataset
 @st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
-def file_uploader():
-    ''' This function uploads dataset into the system'''
+def format_uploader():
+    ''' This function converts dataset to dataframe'''
     if selected_file is not None:
         
         if "csv" in selected_file.name:
@@ -152,7 +152,7 @@ def file_uploader():
 
 
 # load dataset
-dataset = file_uploader()
+dataset = format_uploader()
 
 #############################################################################################################################################
 ## Main functions (contains a sidebar of the compatible functions) ###########
@@ -555,8 +555,6 @@ if main_options == 'Single Column Analysis':
                 
                 return st.plotly_chart(fig, use_container_width=True)
         
-        
-
             ### column holding boxplot
             with img:
                 box_plt = st.empty()
@@ -841,8 +839,6 @@ if main_options == 'Multiple Column Analysis':
             ### Duplicate Analysis ######################################################################################
             if multi_ops == 'Duplicates':
 
-                #dup, drop_dup = st.columns([2,1])
-
                 #### check duplicates 
                 def dup_df():
                     '''Check if duplicates exist and drop'''
@@ -977,6 +973,8 @@ if main_options == 'Multiple Column Analysis':
                         #### get x and y data for scatter 
                         #clust, clust_opt = st.columns([2,1])
                         with repair_options:
+                            st.header('')
+                            st.header('')
 
                             f_dat = dataset[f_list]
 
