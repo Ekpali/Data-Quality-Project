@@ -72,7 +72,6 @@ st.set_page_config(layout = "wide")
 
 # Main heading
 st.title('Data Profiling and Quality Analysis Tool')
-st.markdown(f"""[![Ekpali - Data-Quality-Project](https://img.shields.io/static/v1?label=Ekpali&message=Data-Quality-Project&color=blue&logo=github)](https://github.com/Ekpali/Data-Quality-Project "Go to GitHub repo")""")
 
 # intro page holder
 intro_page = st.empty()
@@ -82,6 +81,7 @@ def intro():
     description, flow = st.columns([2.5,1])
     with description:
         st.subheader('Welcome to the data exploration, quality analysis and repair tool 🕵')
+        st.markdown(f"""[![Ekpali - Data-Quality-Project](https://img.shields.io/static/v1?label=Ekpali&message=Data-Quality-Project&color=blue&logo=github)](https://github.com/Ekpali/Data-Quality-Project "Go to GitHub repo")""")
         st.write('This tool supports the following features:')
         """ 
         * Data profiling using Pandas Profiler (highly recommended step prior to further analysis)
@@ -158,7 +158,8 @@ dataset = format_uploader()
 ## Main functions (contains a sidebar of the compatible functions) ###########
 st.sidebar.header('')
 st.sidebar.header('')
-main_options = st.sidebar.radio("Select Task", ["Data Profile/Summary", "Single Column Analysis", "Multiple Column Analysis"])
+with st.sidebar.expander('Select Task', expanded=True): 
+    main_options = st.radio("", ["Data Profile/Summary", "Single Column Analysis", "Multiple Column Analysis"])
 
 ########################################################################################
 # DQ Summary #################
