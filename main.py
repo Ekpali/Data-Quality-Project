@@ -76,9 +76,9 @@ st.title('Data Profiling and Quality Analysis Tool')
 # into page function
 def intro():
     st.subheader('Welcome to the data exploration, quality analysis and repair tool 🕵')
-    st.markdown(f"""[![Ekpali - Data-Quality-Project](https://img.shields.io/static/v1?label=Ekpali&message=Data-Quality-Project&color=blue&logo=github)](https://github.com/Ekpali/Data-Quality-Project "Go to GitHub repo")""")
     description, flow = st.columns([2.5,1])
     with description:
+        st.markdown(f"""[![Ekpali - Data-Quality-Project](https://img.shields.io/static/v1?label=Ekpali&message=Data-Quality-Project&color=blue&logo=github)](https://github.com/Ekpali/Data-Quality-Project "Go to GitHub repo")""")
         st.write('This tool supports the following features:')
         """ 
         * Data profiling using Pandas Profiler (highly recommended step prior to further analysis)
@@ -96,8 +96,6 @@ def intro():
             * Clusters
         """
     with flow:
-        # st.header('')
-        # st.header('')
         image = Image.open('flow.png')
         st.image(image, width=None)
     st.info('Clicking the Restart Session button clears the cache of the system, undoing all perfomed steps')
@@ -155,8 +153,6 @@ with st.sidebar.expander('Select Task', expanded=True):
 ########################################################################################
 # DQ Summary #################
 if main_options == "Data Profile/Summary":
-
-    #st.subheader('Data Profile')
 
     ## start progress bar
     prog = st.progress(0)  
@@ -230,7 +226,6 @@ if main_options == 'Single Column Analysis':
         prog = st.progress(0) 
 
         ## Dropdown list of type of analysis
-        #Single_ops = 
         ops = st.selectbox("Type of analysis", ["Missing Values", "Outliers", "Entry Type", "Distributions"])
 
         ## end progress bar
@@ -405,7 +400,6 @@ if main_options == 'Single Column Analysis':
             # with img:
             #     st.info('No missing values in the column')
             with repair_options:
-                st.header('')
                 st.header('')
                 
                 #### remove column ##############################################
