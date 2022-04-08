@@ -124,6 +124,7 @@ selected_file = st.sidebar.file_uploader("Please upload file", type=["xlsx", "cs
 def format_uploader():
     ''' This function converts dataset to dataframe'''
     if selected_file is not None:
+        st.empty()
         
         if "csv" in selected_file.name:
             df = pd.read_csv(selected_file)
