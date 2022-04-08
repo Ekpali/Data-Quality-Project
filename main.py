@@ -73,15 +73,12 @@ st.set_page_config(layout = "wide")
 # Main heading
 st.title('Data Profiling and Quality Analysis Tool')
 
-# intro page holder
-intro_page = st.empty()
-
-#@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
+# into page function
 def intro():
+    st.subheader('Welcome to the data exploration, quality analysis and repair tool 🕵')
+    st.markdown(f"""[![Ekpali - Data-Quality-Project](https://img.shields.io/static/v1?label=Ekpali&message=Data-Quality-Project&color=blue&logo=github)](https://github.com/Ekpali/Data-Quality-Project "Go to GitHub repo")""")
     description, flow = st.columns([2.5,1])
     with description:
-        st.subheader('Welcome to the data exploration, quality analysis and repair tool 🕵')
-        st.markdown(f"""[![Ekpali - Data-Quality-Project](https://img.shields.io/static/v1?label=Ekpali&message=Data-Quality-Project&color=blue&logo=github)](https://github.com/Ekpali/Data-Quality-Project "Go to GitHub repo")""")
         st.write('This tool supports the following features:')
         """ 
         * Data profiling using Pandas Profiler (highly recommended step prior to further analysis)
@@ -98,14 +95,12 @@ def intro():
             * Anomaly detection 
             * Clusters
         """
-        
     with flow:
-        st.header('')
-        st.header('')
+        # st.header('')
+        # st.header('')
         image = Image.open('flow.png')
         st.image(image, width=None)
     st.info('Clicking the Restart Session button clears the cache of the system, undoing all perfomed steps')
-
 
 # header section for single/multiple column analysis
 header_section = st.empty()
@@ -113,15 +108,15 @@ header_section = st.empty()
 #########################################################################################################################################
 ################################### Start of main functionalities #######################################################################
 
-# main columns for images and repair functionalities 
-img, repair_options, hist = st.columns([2.5,1,1])
-
 # Clear cache to start fresh session
 if st.sidebar.button("Restart Session"):
     st.legacy_caching.caching.clear_cache()
     for hist_holder in st.session_state.keys():
         del st.session_state[hist_holder]
-    #st.sidebar.info('Deletes all steps')
+
+# main columns for images and repair functionalities 
+img, repair_options, hist = st.columns([2.5,1,1])
+
 
 # Import dataset in either of the three accepted formats xlsx, csv or txt
 selected_file = st.sidebar.file_uploader("Please upload file", type=["xlsx", "csv", "txt"], accept_multiple_files=False)
@@ -139,13 +134,10 @@ def format_uploader():
         elif "txt" in selected_file.name:
             df = pd.read_fwf(selected_file)
         st.sidebar.success("upload successful")
-        with intro_page.container():
-            st.empty()
 
     else:
         st.sidebar.info("Please upload a valid xlsx, csv or txt file")
-        with intro_page.container():
-            intro()
+        intro()
         st.stop()
 
     return df 
@@ -156,7 +148,6 @@ dataset = format_uploader()
 
 #############################################################################################################################################
 ## Main functions (contains a sidebar of the compatible functions) ###########
-st.sidebar.header('')
 st.sidebar.header('')
 with st.sidebar.expander('Select Task', expanded=True): 
     main_options = st.radio("", ["Data Profile/Summary", "Single Column Analysis", "Multiple Column Analysis"])
@@ -242,6 +233,9 @@ if main_options == 'Single Column Analysis':
         #Single_ops = 
         ops = st.selectbox("Type of analysis", ["Missing Values", "Outliers", "Entry Type", "Distributions"])
 
+        ## end progress bar
+        prog.progress(100)
+
         ## Container to hold dropdown list of each column
         col_holder = st.empty()
 
@@ -264,8 +258,7 @@ if main_options == 'Single Column Analysis':
                 col_type = data_conv[column_name].dtype
                 st.info('{} column type is: {}'.format(column_name, col_type))
 
-        ## end progress bar
-        prog.progress(100)
+        
 
     ###############################################################################
     ## Missing values analysis ###################################################
