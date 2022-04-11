@@ -23,7 +23,13 @@ from numpy import mean
 from numpy import std
 from scipy.stats import shapiro
 
+# configure page with
 st.set_page_config(layout = "wide")
+
+
+# css styling where needed
+# with open('style.css') as f:
+#     st.markdown(f""" <style>{f.read()}</style>""", unsafe_allow_html=True)
 
 # # Set background image courtesy of soft-nougat on https://discuss.streamlit.io/t/how-do-i-use-a-background-image-on-streamlit/5067/17
 # def set_bg_hack(main_bg):
@@ -113,7 +119,7 @@ if st.sidebar.button("Restart Session"):
         del st.session_state[hist_holder]
 
 # main columns for images and repair functionalities 
-img, repair_options, hist = st.columns([2.5,1,1])
+img, repair_options, hist = st.columns([2.5,1,1.1])
 
 
 # Import dataset in either of the three accepted formats xlsx, csv or txt
@@ -172,6 +178,7 @@ if main_options == "Data Profile/Summary":
     profile = profile_reporter(dataset)
     prog.progress(30)
     ## show profile
+    st.empty()
     st_profile_report(profile)
 
     ## end progress bar
@@ -227,7 +234,7 @@ if main_options == 'Single Column Analysis':
         prog = st.progress(0) 
 
         ### Dropdown list of type of analysis
-        ops = st.selectbox("Type of analysis", ["Missing Values", "Outliers", "Entry Type", "Distributions"])
+        ops = st.selectbox("Type of analysis", ["Missing Values", "Outliers", "Entry Type", "Distributions", "Other"])
 
         ### end progress bar
         prog.progress(100)
@@ -660,8 +667,7 @@ if main_options == 'Single Column Analysis':
         with repair_options:
             ### show statistics and repair for numeric columns
             if dataset[column_name].dtype == "int64" or dataset[column_name].dtype == "float64":
-                st.header('')
-                st.write('Select operation')
+                st.write('Action')
                 #### remove range using user inpute
                 with st.expander('Remove range of values'):
                     lower = st.number_input("lower bound", min_value=0, step=10)
@@ -723,8 +729,94 @@ if main_options == 'Single Column Analysis':
                         else:
                             st.warning(f'No entries with name {class_name}')
 
-    input_hist()
+    ############################################################################################################
+    ## Others ##################################################################################
+    if ops == "Other":
 
+        ### Calculate range
+        ### function to replace range with mean
+        def range_mean(row):
+            row = str(row)
+            if '-' in set(row):
+                num_before = ""
+                num_after = ""
+                dash_idx = row.index('-')
+                for n in row[0:dash_idx]:
+                    if n.isdigit():
+                        num_before = num_before + n
+                for n in row[dash_idx:len(row)]:
+                    if n.isdigit():
+                        num_after = num_after + n
+                return np.average([int(num_before), int(num_after)])
+            else:
+                return(row)
+
+        with img:
+            st.write('Column')
+            single_column = st.empty()
+
+            def update_col():
+                with single_column.container():
+                    col = pd.DataFrame(dataset[column_name])
+                    return st.write(col)
+            update_col()
+
+        with repair_options:
+            st.write('Action')
+            if st.button('Replace range with mean'):
+                dataset[column_name] = dataset[column_name].apply(range_mean)
+                st.session_state.hist_holder.append(f'All range values in {column_name} replaced with mean values')
+                update_col()
+
+            ### Split Column
+            with st.expander('Split column'):
+                #split_by = " "
+                split_by = st.text_input('Split by:')
+                new_col1 = st.text_input('New column 1 name: ')
+                new_col2 = st.text_input('New column 2 name: ')
+                Keep_col = st.radio('Keep original column', ['Yes', 'No'])
+
+                def col_position_adjustment():
+                    dataset.insert((dataset.columns.get_loc(column_name))+1, new_col1, dataset.pop(new_col1))
+                    dataset.insert((dataset.columns.get_loc(column_name))+2, new_col2, dataset.pop(new_col2))
+
+                if st.button('Execute'):
+                    if Keep_col == 'Yes':
+                        dataset[[new_col1,new_col2]] = dataset[column_name].str.split(split_by, 1, expand=True)
+                        with single_column.container():
+                            cols = pd.DataFrame(dataset[[column_name, new_col1, new_col2]])
+                            st.write(cols)
+                            st.session_state.hist_holder.append(f'{column_name} split into {new_col1, new_col2}')
+                            col_position_adjustment()
+                            with col_holder.container():
+                                column_list = list(dataset)
+                                column_name = st.selectbox("Select column to analyse", column_list)
+                                st.info('{} column type is: {}'.format(column_name, col_type))
+                            with coltype_holder.container():
+                                st.empty()
+                        
+                            
+                    else:
+                        dataset[[new_col1,new_col2]] = dataset[column_name].str.split(split_by, 1, expand=True)
+                        with single_column.container():
+                            cols = pd.DataFrame(dataset[[new_col1, new_col2]])
+                            st.write(cols)
+                            st.session_state.hist_holder.append(f'{column_name} split into {new_col1, new_col2}, {column_name} dropped')
+                        col_position_adjustment()
+                        dataset.drop(columns=[str(column_name)], axis=1, inplace=True)
+                        dataset.reset_index(drop=True, inplace=True)
+
+                        
+                        with col_holder.container():
+                                column_list = list(dataset)
+                                column_name = st.selectbox("Select column to analyse", column_list)
+                                st.info('{} column type is: {}'.format(column_name, col_type))
+                        with coltype_holder.container():
+                            st.empty()
+
+                        
+
+    input_hist()
 
 
 #####################################################################################################################################
