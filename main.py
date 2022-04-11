@@ -223,31 +223,31 @@ if main_options == 'Single Column Analysis':
     with header_section.container():
         st.subheader("Single Column Analysis")
 
-        ## start progress bar
+        ### start progress bar
         prog = st.progress(0) 
 
-        ## Dropdown list of type of analysis
+        ### Dropdown list of type of analysis
         ops = st.selectbox("Type of analysis", ["Missing Values", "Outliers", "Entry Type", "Distributions"])
 
-        ## end progress bar
+        ### end progress bar
         prog.progress(100)
 
-        ## Container to hold dropdown list of each column
+        ### Container to hold dropdown list of each column
         col_holder = st.empty()
 
-        ## Insert column list into container
+        ### Insert column list into container
         with col_holder.container():
             column_list = list(dataset)
             column_name = st.selectbox("Select column to analyse", column_list)
 
-        ## show column type
+        ### show column type
         coltype_holder = st.empty()
         with coltype_holder.container():
             data_conv = dataset.convert_dtypes()
             col_type = data_conv[column_name].dtype
             st.info('{} column type is: {}'.format(column_name, col_type))
 
-
+        ### update coltype after column removal
         def update_coltype():
             with coltype_holder.container():
                 data_conv = dataset.convert_dtypes()
@@ -290,6 +290,12 @@ if main_options == 'Single Column Analysis':
             
             return st.plotly_chart(fig, use_container_width=True) 
 
+        def recompute_and_plot():
+            '''recompute missing values and update plot'''
+            with pie_holder.container():
+                missing_df = compute_missing(dataset, column_name)
+                missing_values_plotter(list(missing_df.values()), list(missing_df.keys()))
+
         ### Column with placeholder for pie chart
         with img:
             # make pie chart showing missing values percentage in selected column
@@ -298,19 +304,13 @@ if main_options == 'Single Column Analysis':
             with pie_holder.container():
                 missing_values_plotter(list(missing_df.values()), list(missing_df.keys()))
 
-            def recompute_and_plot():
-                '''recompute missing values and update plot'''
-                with pie_holder.container():
-                            missing_df = compute_missing(dataset, column_name)
-                            missing_values_plotter(list(missing_df.values()), list(missing_df.keys()))
-
         ## Check whether columns contain missing values
         if dataset[column_name].isnull().sum() != 0:
 
             ### Column with missing values repair options
             with repair_options:
-                st.header('')
-                st.markdown('Perform Repair Action')
+                #st.header('')
+                st.markdown('Action')
 
                 #### remove missing ###############################################################
                 if st.button('Remove null values'):        
@@ -401,8 +401,7 @@ if main_options == 'Single Column Analysis':
             # with img:
             #     st.info('No missing values in the column')
             with repair_options:
-                st.header('')
-                
+                st.write('Action')
                 #### remove column ##############################################
                 if st.button("Remove column"):
                     dataset.drop(columns=[str(column_name)], axis=1, inplace=True)
