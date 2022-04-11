@@ -479,9 +479,7 @@ if main_options == 'Single Column Analysis':
         ### column holding remedy buttons 
         with repair_options:
             compute_datatype()
-            st.header('')
-            st.header('')
-            st.write('Repair suggestion')
+            st.write('Action')
 
             if len(uniq_list_dtypes) > 1:
 
@@ -561,8 +559,7 @@ if main_options == 'Single Column Analysis':
 
             ### column holding repair methods
             with repair_options:
-                st.subheader('')
-                st.write('Select repair method')
+                st.write('Action')
 
                 ##### show dataframe of key values
                 def show_outlier_df(lower, upper):
@@ -685,8 +682,7 @@ if main_options == 'Single Column Analysis':
                             st.warning(f'There are no values between {lower} and {upper} in {column_name}')
                 
             else:
-                st.header('')
-                st.write('Select operation')
+                st.write('Action')
                 #### remove values of specific classes from column
                 with st.expander('Remove value'):
                     class_name = st.text_input("input class (case sensitive)")
@@ -780,8 +776,8 @@ if main_options == 'Multiple Column Analysis':
 
                     ##### button to drop all missing values
                     with repair_options:
+                        st.write('Action')
                         if dataset[select_cols].isnull().sum().sum() != 0:
-                            st.header('')
                             if st.button('Drop all null values'):
                                 dataset.dropna(subset=select_cols, inplace=True)
                                 dataset.reset_index(drop=True, inplace=True)
@@ -844,6 +840,7 @@ if main_options == 'Multiple Column Analysis':
                         
                         ###### drop duplicate entries
                         with repair_options:
+                            st.write('Action')
                             if st.button('Drop duplicates'):
                                 dataset.drop_duplicates(subset=select_cols,inplace=True)
                                 dataset.reset_index(drop=True, inplace=True)
@@ -866,7 +863,6 @@ if main_options == 'Multiple Column Analysis':
                     st.empty()
                 
                 #### selection columns for numeric and categorical data
-                #box_col, options = st.columns([2,1])
                 with repair_options:
                     num_data = st.selectbox('Select Y values (numeric)', dataset.select_dtypes(include=[np.number]).columns)
                     cat_data = st.selectbox('Select X values (categorical)', dataset.select_dtypes(exclude=[np.number]).columns)
