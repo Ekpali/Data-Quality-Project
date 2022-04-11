@@ -827,6 +827,8 @@ if main_options == 'Multiple Column Analysis':
             ############################################################################################################
             ### Duplicate Analysis ######################################################################################
             if multi_ops == 'Duplicates':
+                if dataset[select_cols].isnull().sum().sum() > 0:
+                    st.warning('Selected columns contain missing values which could lead to misinterpretation')
 
                 #### check duplicates 
                 def dup_df():
