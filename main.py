@@ -117,6 +117,8 @@ if st.sidebar.button("Restart Session"):
     st.legacy_caching.caching.clear_cache()
     for hist_holder in st.session_state.keys():
         del st.session_state[hist_holder]
+    for data_store in st.session_state.keys():
+        del st.session_state[data_store]
 
 # main columns for images and repair functionalities 
 img, repair_options, hist = st.columns([2.5,1,1.1])
@@ -149,7 +151,32 @@ def format_uploader():
 
 
 # load dataset
-dataset = format_uploader()
+data_holder = st.empty()
+
+with data_holder.container():   
+    dataset = format_uploader()
+
+if 'data_store' not in st.session_state:
+    st.session_state.data_store = []
+
+# if 'data_store' not in st.session_state:
+#     st.session_state.data_store = dict()
+
+
+# st.session_state.data_store[0] = format_uploader()
+# if pd.DataFrame(list(st.session_state.data_store.values())[-1]).equals(dataset) == False:
+#     st.session_state.data_store[len(st.session_state.data_store.keys())+1] = dataset
+
+
+
+def append_data(data_copy):
+    st.session_state.data_store.append(data_copy)
+    # if pd.DataFrame(st.session_state.data_store[-1]).equals(dataset) == False:
+    #     st.session_state.data_store.append(dataset)
+
+#check_data(dataset)
+
+
 
 #############################################################################################################################################
 ## Main functions (contains a sidebar of the compatible functions) ###########
@@ -199,6 +226,7 @@ if 'hist_holder' not in st.session_state:
 # delete history buttion 
 def history_button():
     '''delete history from session state'''
+    global dataset
     with hist:
         st.markdown('History')
         if st.button('Clear history'):
@@ -207,8 +235,29 @@ def history_button():
                     del st.session_state[hist_holder]
             else:
                 st.warning('No recorded history')
+        if st.button('Undo last'):
+            st.legacy_caching.caching.clear_cache()
+            if len(st.session_state.hist_holder) > 0:
+                st.session_state.hist_holder.pop()
+                with data_holder.container():
+                    dataset = pd.DataFrame(st.session_state.data_store[-1]).copy(deep=True)
+                st.session_state.data_store.pop()
+
+
+            else:
+                st.warning('No recorded history')
     if 'hist_holder' not in st.session_state:
         st.session_state.hist_holder = []
+        
+
+# def undo_button(dataset):
+#     if st.button('Undo last'):
+#         if len(st.session_state.hist_holder) > 0:
+#             st.session_state.hist_holder.pop()
+#             with data_holder.container():   
+#                 dataset = pd.DataFrame(st.session_state.data_store[-1])
+#         else:
+#             st.warning('No recorded history')
 
 
 # print all history
@@ -235,6 +284,7 @@ if main_options == 'Single Column Analysis':
 
         ### Dropdown list of type of analysis
         ops = st.selectbox("Type of analysis", ["Missing Values", "Outliers", "Entry Type", "Distributions", "Other"])
+        #st.write(st.session_state.data_store)
 
         ### end progress bar
         prog.progress(100)
@@ -322,6 +372,10 @@ if main_options == 'Single Column Analysis':
                 #### remove missing ###############################################################
                 if st.button('Remove null values'):        
                     missing_index = dataset[dataset[column_name].isnull()].index.tolist()
+
+                    d_copy = dataset.copy(deep=True)
+                    append_data(d_copy)
+                    
                     dataset.drop(missing_index, inplace=True)
                     dataset.reset_index(drop=True, inplace=True)
                 
@@ -333,7 +387,10 @@ if main_options == 'Single Column Analysis':
                 #### replace missing values with mean  ############################################  
                 if st.button("Replace null with mean"):
                     if dataset[column_name].dtype == "int64" or dataset[column_name].dtype == "float64":
-                        #missing_index = dataset[dataset[column_name].isnull()].index.tolist()
+                        
+                        d_copy = dataset.copy(deep=True)
+                        append_data(d_copy)
+
                         dataset[column_name].fillna(dataset[column_name].mean(), inplace=True)
 
                         recompute_and_plot()
@@ -348,6 +405,9 @@ if main_options == 'Single Column Analysis':
                 if st.button("Replace null with KNN"):
                     if dataset[column_name].dtype == "int64" or dataset[column_name].dtype == "float64":
                         int_data = dataset.select_dtypes(include=['int64', 'float64'])
+
+                        d_copy = dataset.copy(deep=True)
+                        append_data(d_copy)
 
                         #Normalise data
                         scaler = MinMaxScaler()
@@ -379,6 +439,10 @@ if main_options == 'Single Column Analysis':
                         user_miss_input = st.text_input("Input text")
 
                     if st.button('Replace'):
+
+                        d_copy = dataset.copy(deep=True)
+                        append_data(d_copy)
+
                         dataset[column_name].fillna(value=user_miss_input, inplace=True)
                         ##### show results
                         recompute_and_plot()
@@ -391,8 +455,12 @@ if main_options == 'Single Column Analysis':
                     ####### add to history tab
                     st.session_state.hist_holder.append(f'{column_name} removed')
 
+                    d_copy = dataset.copy(deep=True)
+                    append_data(d_copy)
+
                     dataset.drop(columns=[str(column_name)], axis=1, inplace=True)
                     st.success('{} successfully removed'.format(str(column_name)))
+                    #check_data(d_test)
 
                     with col_holder.container():
                         column_list = list(dataset)
@@ -411,6 +479,10 @@ if main_options == 'Single Column Analysis':
                 st.write('Action')
                 #### remove column ##############################################
                 if st.button("Remove column"):
+
+                    d_copy = dataset.copy(deep=True)
+                    append_data(d_copy)
+
                     dataset.drop(columns=[str(column_name)], axis=1, inplace=True)
                     st.success('{} successfully removed'.format(str(column_name)))
                     ####### add to history tab
@@ -493,6 +565,9 @@ if main_options == 'Single Column Analysis':
                 #### delete numeric entries ###############################################################
                 if st.button('Delete numeric entries'):
                     if len(digit_index) > 0:
+                        d_copy = dataset.copy(deep=True)
+                        append_data(d_copy)
+
                         dataset.drop(digit_index, inplace=True)
                         compute_datatype()
                         st.success('numeric enteries removed')
@@ -506,6 +581,8 @@ if main_options == 'Single Column Analysis':
                 #### delete string entries ################################################################
                 if st.button('Delete string entries'):
                     if len(str_index) > 0:
+                        d_copy = dataset.copy(deep=True)
+                        append_data(d_copy)
                         dataset.drop(str_index, inplace=True)
                         compute_datatype()
                         st.success('string entries removed')
@@ -594,6 +671,10 @@ if main_options == 'Single Column Analysis':
                         show_outlier_df(lower, upper)
                         ##### identify and remove outliers
                         out_idx = dataset[(dataset[column_name] < lower) | (dataset[column_name] > upper)].index.tolist()
+
+                        d_copy = dataset.copy(deep=True)
+                        append_data(d_copy)
+
                         dataset.drop(out_idx, inplace=True)
                         dataset.reset_index(drop=True, inplace=True)
                         ##### update boxplot
@@ -675,7 +756,10 @@ if main_options == 'Single Column Analysis':
 
                     if st.button('Execute'):
                         out_idx = dataset[(dataset[column_name] > lower) & (dataset[column_name] < upper)].index.tolist() 
-                        if len(out_idx) > 0:  
+                        if len(out_idx) > 0:
+                            d_copy = dataset.copy(deep=True)
+                            append_data(d_copy)
+
                             dataset.drop(out_idx, inplace=True)
                             dataset.reset_index(drop=True, inplace=True)
                             ####### add to history tab
@@ -697,6 +781,9 @@ if main_options == 'Single Column Analysis':
                         out_idx_s = dataset[dataset[column_name] == class_name].index.tolist()
 
                         if len(out_idx_s) > 0:  
+                            d_copy = dataset.copy(deep=True)
+                            append_data(d_copy)
+
                             dataset.drop(out_idx_s, inplace=True)
                             dataset.reset_index(drop=True, inplace=True)
                             ####### add to history tab
@@ -716,7 +803,10 @@ if main_options == 'Single Column Analysis':
                         out_idx_s = dataset[dataset[column_name] == target_class].index.tolist()
 
                         if len(out_idx_s) > 0:
-                            if replace_class is not None:  
+                            if replace_class is not None:
+                                d_copy = dataset.copy(deep=True)
+                                append_data(d_copy)
+
                                 dataset[column_name][out_idx_s] = replace_class
                                 dataset.reset_index(drop=True, inplace=True)
                                 ####### add to history tab
@@ -764,13 +854,14 @@ if main_options == 'Single Column Analysis':
         with repair_options:
             st.write('Action')
             if st.button('Replace range with mean'):
+                d_copy = dataset.copy(deep=True)
+                append_data(d_copy)
                 dataset[column_name] = dataset[column_name].apply(range_mean)
                 st.session_state.hist_holder.append(f'All range values in {column_name} replaced with mean values')
                 update_col()
 
             ### Split Column
             with st.expander('Split column'):
-                #split_by = " "
                 split_by = st.text_input('Split by:')
                 new_col1 = st.text_input('New column 1 name: ')
                 new_col2 = st.text_input('New column 2 name: ')
@@ -782,6 +873,8 @@ if main_options == 'Single Column Analysis':
 
                 if st.button('Execute'):
                     if Keep_col == 'Yes':
+                        d_copy = dataset.copy(deep=True)
+                        append_data(d_copy)
                         dataset[[new_col1,new_col2]] = dataset[column_name].str.split(split_by, 1, expand=True)
                         with single_column.container():
                             cols = pd.DataFrame(dataset[[column_name, new_col1, new_col2]])
@@ -797,6 +890,8 @@ if main_options == 'Single Column Analysis':
                         
                             
                     else:
+                        d_copy = dataset.copy(deep=True)
+                        append_data(d_copy)
                         dataset[[new_col1,new_col2]] = dataset[column_name].str.split(split_by, 1, expand=True)
                         with single_column.container():
                             cols = pd.DataFrame(dataset[[new_col1, new_col2]])
@@ -871,6 +966,10 @@ if main_options == 'Multiple Column Analysis':
                         st.write('Action')
                         if dataset[select_cols].isnull().sum().sum() != 0:
                             if st.button('Drop all null values'):
+
+                                d_copy = dataset.copy(deep=True)
+                                append_data(d_copy)
+
                                 dataset.dropna(subset=select_cols, inplace=True)
                                 dataset.reset_index(drop=True, inplace=True)
                 
@@ -894,6 +993,10 @@ if main_options == 'Multiple Column Analysis':
                             del_columns = st. multiselect('Remove multiple columns', dataset.columns)
                             if len(del_columns) > 0:
                                 if st.button("Remove column"):
+
+                                    d_copy = dataset.copy(deep=True)
+                                    append_data(d_copy)
+
                                     dataset.drop(columns=del_columns, inplace=True)
                                     #dataset.reset_index(drop=True, inplace=True)
                                     st.success('{} successfully removed'.format(del_columns))
@@ -934,6 +1037,10 @@ if main_options == 'Multiple Column Analysis':
                         with repair_options:
                             st.write('Action')
                             if st.button('Drop duplicates'):
+
+                                d_copy = dataset.copy(deep=True)
+                                append_data(d_copy)
+
                                 dataset.drop_duplicates(subset=select_cols,inplace=True)
                                 dataset.reset_index(drop=True, inplace=True)
                                 with dup_holder.container():
@@ -1049,7 +1156,6 @@ if main_options == 'Multiple Column Analysis':
                     if len(f_list) > 0:
 
                         #### get x and y data for scatter 
-                        #clust, clust_opt = st.columns([2,1])
                         with repair_options:
                             st.header('')
                             st.header('')
@@ -1064,10 +1170,7 @@ if main_options == 'Multiple Column Analysis':
                                 '''determine optimum number of clusters'''
                                 
                                 clust_range = [2,3,4,5,6,7,8,9,10,11,12,13,14,15]
-
-                                #clust_n = []
                                 sil_avg = []
-
 
                                 for n_clusters in clust_range:
                                     clusterer = KMeans(n_clusters=n_clusters, random_state=10)
@@ -1083,7 +1186,6 @@ if main_options == 'Multiple Column Analysis':
                             def cluster(dat, nclust):
                                 model = KMeans(nclust)
                                 model.fit(dat)
-                                #model = AgglomerativeClustering(n_clusters=nclust, affinity = 'euclidean', linkage = 'ward')
                                 clust_labels = model.predict(dat)
                                 return (clust_labels)
 
@@ -1093,7 +1195,6 @@ if main_options == 'Multiple Column Analysis':
                             
                             x_dat = st.selectbox('Select X values', f_list)
                             y_dat = st.selectbox('Select Y values', f_list)
-                            #bar_colscat = st.selectbox('Select column to colour plot', dataset.columns)
 
                         with img:
                             st.info(f'Optimal number of clusters obtained from silhouette method is {nclust}')
