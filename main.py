@@ -121,7 +121,7 @@ if st.sidebar.button("Restart Session"):
         del st.session_state[data_store]
 
 # main columns for images and repair functionalities 
-img, repair_options, hist = st.columns([2.5,1,1.1])
+img, repair_options, hist, undo = st.columns([2.5,1,1.1,0.4])
 
 
 # Import dataset in either of the three accepted formats xlsx, csv or txt
@@ -150,32 +150,18 @@ def format_uploader():
     return df 
 
 
+if 'data_store' not in st.session_state:
+    st.session_state.data_store = []
+
 # load dataset
-data_holder = st.empty()
+data_holder = st.container()
 
 with data_holder.container():   
     dataset = format_uploader()
 
-if 'data_store' not in st.session_state:
-    st.session_state.data_store = []
-
-# if 'data_store' not in st.session_state:
-#     st.session_state.data_store = dict()
-
-
-# st.session_state.data_store[0] = format_uploader()
-# if pd.DataFrame(list(st.session_state.data_store.values())[-1]).equals(dataset) == False:
-#     st.session_state.data_store[len(st.session_state.data_store.keys())+1] = dataset
-
-
-
+# append copy of dataset to session state before carrying out action
 def append_data(data_copy):
     st.session_state.data_store.append(data_copy)
-    # if pd.DataFrame(st.session_state.data_store[-1]).equals(dataset) == False:
-    #     st.session_state.data_store.append(dataset)
-
-#check_data(dataset)
-
 
 
 #############################################################################################################################################
@@ -235,29 +221,34 @@ def history_button():
                     del st.session_state[hist_holder]
             else:
                 st.warning('No recorded history')
-        if st.button('Undo last'):
-            st.legacy_caching.caching.clear_cache()
+        
+    if 'hist_holder' not in st.session_state:
+        st.session_state.hist_holder = []
+        
+
+def undo_button():
+    with undo:
+        st.write('Undo')
+        if st.button('⏪'):
+            #st.legacy_caching.caching.clear_cache()
             if len(st.session_state.hist_holder) > 0:
                 st.session_state.hist_holder.pop()
                 with data_holder.container():
-                    dataset = pd.DataFrame(st.session_state.data_store[-1]).copy(deep=True)
+                    store_df = pd.DataFrame(st.session_state.data_store[-1]).copy(deep=True)
+                    if len(dataset.columns.to_list()) != len(store_df.columns.to_list()):
+                        non_df = np.setdiff1d(store_df.columns, dataset.columns)
+                        #st.write(non_df)
+                        for index, value in enumerate(non_df):
+                            dataset.insert(store_df.columns.get_loc(non_df[index]), non_df[index], store_df.pop(non_df[index]))
+                    else:
+                        dataset.drop(dataset.index, inplace=True)
+                        dataset[dataset.columns.to_list()] = store_df[store_df.columns.to_list()]
+                
                 st.session_state.data_store.pop()
 
 
             else:
                 st.warning('No recorded history')
-    if 'hist_holder' not in st.session_state:
-        st.session_state.hist_holder = []
-        
-
-# def undo_button(dataset):
-#     if st.button('Undo last'):
-#         if len(st.session_state.hist_holder) > 0:
-#             st.session_state.hist_holder.pop()
-#             with data_holder.container():   
-#                 dataset = pd.DataFrame(st.session_state.data_store[-1])
-#         else:
-#             st.warning('No recorded history')
 
 
 # print all history
@@ -275,6 +266,7 @@ def input_hist():
 #################################################################################################################################
 if main_options == 'Single Column Analysis':
     history_button()
+    undo_button()
 
     with header_section.container():
         st.subheader("Single Column Analysis")
@@ -339,7 +331,7 @@ if main_options == 'Single Column Analysis':
                              insidetextorientation='auto',rotation=90
                             )])
 
-            colors = ['red', 'green']
+            colors = ['lavender', 'blue']
             fig.update_traces(textfont_size=17,
                   marker=dict(colors=colors))
             fig.update_layout(margin=dict(t=30, b=0, l=0, r=10), title_text='Null values in {} '.format(str(column_name)), title_x=0.3)
@@ -919,6 +911,7 @@ if main_options == 'Single Column Analysis':
 #####################################################################################################################################
 if main_options == 'Multiple Column Analysis':
     history_button()
+    undo_button()
 
     with header_section.container():
         st.subheader("Multiple Column Analysis")
@@ -985,7 +978,6 @@ if main_options == 'Multiple Column Analysis':
                             st.warning('Consider single column analysis for null values instead')
                                 
                         else:
-                            st.header('')
                             st.info('There are no missing values in the selected columns')
                         
                         ###### remove selected columns
