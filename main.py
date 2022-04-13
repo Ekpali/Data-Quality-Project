@@ -3,6 +3,8 @@ import pandas_profiling
 from streamlit_pandas_profiling import st_profile_report
 import pandas as pd
 import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
 import openpyxl
 from collections import Counter
 import os
@@ -16,6 +18,7 @@ import plotly.graph_objects as go
 import plotly.figure_factory as ff
 import base64
 from PIL import Image
+
 
 
 # outliers
@@ -222,8 +225,8 @@ if 'hist_holder' not in st.session_state:
 
 # delete history buttion 
 def history_button():
-    global dataset
     '''delete history from session state'''
+    global dataset
     with hist:
         st.markdown('History')
         if st.button('Clear history'):
@@ -1233,30 +1236,50 @@ if main_options == 'Multiple Column Analysis':
                     st.info('Showing numeric columns only, see data profile for plot including categorical columns')
 
                     corr = dataset[select_cols].corr().round(3)
+                
+                with repair_options:
+                    st.write('Options')
+                    list_num = [None] + list(num_data.columns)
+                    cor_select = st.selectbox('Select target column', list_num)
 
-                with img:
-                    ##### make heatmap corrplot of numeric columns
-                    if len(select_cols) > 0:
-                        def corr_plot():
-                            fig = ff.create_annotated_heatmap(z=corr.to_numpy(), 
-                                            x=corr.index.tolist(), 
-                                            y=corr.columns.tolist(), 
-                                            colorscale=px.colors.diverging.RdBu,
-                                            zmin=-1,zmax=1,
-                                            showscale=True,
-                                            font_colors=['black']
-                                            )
+                if cor_select is None:
+                    with img:
+                        ##### make heatmap corrplot of numeric columns
+                        if len(select_cols) > 0:
+                            def corr_plot():
+                                fig = ff.create_annotated_heatmap(z=corr.to_numpy(), 
+                                                x=corr.index.tolist(), 
+                                                y=corr.columns.tolist(), 
+                                                colorscale=px.colors.diverging.RdBu,
+                                                zmin=-1,zmax=1,
+                                                showscale=True,
+                                                font_colors=['black']
+                                                )
 
-                            fig.update_layout(margin=dict(t=30, b=0, l=0, r=10), 
-                                            title_text='Correlation plot', 
-                                            title_x=0.5)
-                            fig.update_xaxes(side="bottom")
+                                fig.update_layout(margin=dict(t=30, b=0, l=0, r=10), 
+                                                title_text='Correlation plot', 
+                                                title_x=0.5)
+                                fig.update_xaxes(side="bottom")
 
-                            return st.plotly_chart(fig, use_container_width=True)
+                                return st.plotly_chart(fig, use_container_width=True)
 
-                        corr_plot()
-                    else:
-                        st.warning('Please select columns')
+                            corr_plot()
+                        else:
+                            st.warning('Please select columns')
+                else:
+                    with img:
+                        if len(select_cols) > 0:
+                            def cor_spec_plot():
+                                fig = plt.figure(figsize=(12,12))
+                                plt.rcParams["font.size"] = "20"
+                                sns.heatmap(num_data.corr()[[cor_select]].sort_values(by=cor_select,  ascending=False), 
+                                vmin=-1, vmax=1, annot=True, cmap='RdBu')
+
+                                plt.title(f'Features Correlation with {cor_select}')
+                                
+                                
+                                return st.pyplot(fig)
+                            cor_spec_plot()
 
         else:
             st.warning('Please select columns')
