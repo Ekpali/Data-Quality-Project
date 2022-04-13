@@ -160,7 +160,7 @@ if 'data_store' not in st.session_state:
     st.session_state.data_store = []
 
 # load dataset
-data_holder = st.container()
+data_holder = st.empty()
 
 with data_holder.container():   
     dataset = format_uploader()
@@ -222,8 +222,8 @@ if 'hist_holder' not in st.session_state:
 
 # delete history buttion 
 def history_button():
-    '''delete history from session state'''
     global dataset
+    '''delete history from session state'''
     with hist:
         st.markdown('History')
         if st.button('Clear history'):
@@ -233,6 +233,9 @@ def history_button():
                     del st.session_state[hist_holder]
                 for data_store in st.session_state.keys():
                     del st.session_state[data_store]
+                with data_holder.container():   
+                    dataset = format_uploader()
+                
             else:
                 st.warning('No recorded history')
         
