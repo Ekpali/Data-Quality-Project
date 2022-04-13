@@ -25,6 +25,7 @@ from PIL import Image
 from numpy import mean
 from numpy import std
 from scipy.stats import shapiro
+from zmq import select
 
 # configure page with
 st.set_page_config(layout = "wide")
@@ -205,6 +206,7 @@ if main_options == "Data Profile/Summary":
     profile = profile_reporter(dataset)
     prog.progress(30)
     ## show profile
+    st.empty()
     st.empty()
     st_profile_report(profile)
 
@@ -919,9 +921,9 @@ if main_options == 'Single Column Analysis':
                         with coltype_holder.container():
                             st.empty()
 
-                        
-
     input_hist()
+
+
 
 
 #####################################################################################################################################
@@ -1239,7 +1241,7 @@ if main_options == 'Multiple Column Analysis':
                 
                 with repair_options:
                     st.write('Options')
-                    list_num = [None] + list(num_data.columns)
+                    list_num = [None] + list(dataset[select_cols].columns)
                     cor_select = st.selectbox('Select target column', list_num)
 
                 if cor_select is None:
@@ -1272,7 +1274,7 @@ if main_options == 'Multiple Column Analysis':
                             def cor_spec_plot():
                                 fig = plt.figure(figsize=(12,12))
                                 plt.rcParams["font.size"] = "20"
-                                sns.heatmap(num_data.corr()[[cor_select]].sort_values(by=cor_select,  ascending=False), 
+                                sns.heatmap(dataset[select_cols].corr()[[cor_select]].sort_values(by=cor_select,  ascending=False), 
                                 vmin=-1, vmax=1, annot=True, cmap='RdBu')
 
                                 plt.title(f'Features Correlation with {cor_select}')
