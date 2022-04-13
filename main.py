@@ -97,6 +97,7 @@ def intro():
             * Identification and removal of Outliers
             * Column entry type exploration and
             * Column distributions for both categorical and numerical features
+            * Other features
         * Multiple columns Analysis
             * Missing value identification, removal and imputation
             * Scatter plots and distributions
