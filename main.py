@@ -145,11 +145,17 @@ def format_uploader():
     else:
         st.sidebar.info("Please upload a valid xlsx, csv or txt file")
         intro()
+        st.legacy_caching.caching.clear_cache()
+        for hist_holder in st.session_state.keys():
+            del st.session_state[hist_holder]
+        for data_store in st.session_state.keys():
+            del st.session_state[data_store]
         st.stop()
 
     return df 
 
 
+# intialize data storage for undoing changes
 if 'data_store' not in st.session_state:
     st.session_state.data_store = []
 
@@ -159,7 +165,7 @@ data_holder = st.container()
 with data_holder.container():   
     dataset = format_uploader()
 
-# append copy of dataset to session state before carrying out action
+# append copy of dataset to session state before carrying out Options
 def append_data(data_copy):
     st.session_state.data_store.append(data_copy)
 
@@ -169,6 +175,11 @@ def append_data(data_copy):
 st.sidebar.header('')
 with st.sidebar.expander('Select Task', expanded=True): 
     main_options = st.radio("", ["Data Profile/Summary", "Single Column Analysis", "Multiple Column Analysis"])
+
+# see recommended steps
+with st.sidebar.expander('Show recommended steps'):
+    image1 = Image.open('flow.png')
+    st.image(image1, width=None)
 
 ########################################################################################
 # DQ Summary #################
@@ -217,8 +228,11 @@ def history_button():
         st.markdown('History')
         if st.button('Clear history'):
             if len(st.session_state.hist_holder) > 0:
+                st.legacy_caching.caching.clear_cache()
                 for hist_holder in st.session_state.keys():
                     del st.session_state[hist_holder]
+                for data_store in st.session_state.keys():
+                    del st.session_state[data_store]
             else:
                 st.warning('No recorded history')
         
@@ -229,7 +243,7 @@ def history_button():
 def undo_button():
     with undo:
         st.write('Undo')
-        if st.button('⏪'):
+        if st.button('↩️'):
             #st.legacy_caching.caching.clear_cache()
             if len(st.session_state.hist_holder) > 0:
                 st.session_state.hist_holder.pop()
@@ -237,7 +251,6 @@ def undo_button():
                     store_df = pd.DataFrame(st.session_state.data_store[-1]).copy(deep=True)
                     if len(dataset.columns.to_list()) != len(store_df.columns.to_list()):
                         non_df = np.setdiff1d(store_df.columns, dataset.columns)
-                        #st.write(non_df)
                         for index, value in enumerate(non_df):
                             dataset.insert(store_df.columns.get_loc(non_df[index]), non_df[index], store_df.pop(non_df[index]))
                     else:
@@ -248,14 +261,13 @@ def undo_button():
 
 
             else:
-                st.warning('No recorded history')
+                st.warning('Null')
 
 
 # print all history
 def input_hist():
     '''print history in sidebar'''
     with hist:
-        
         for item in st.session_state.hist_holder:
             st.info(item)
     
@@ -359,7 +371,7 @@ if main_options == 'Single Column Analysis':
             ### Column with missing values repair options
             with repair_options:
                 #st.header('')
-                st.markdown('Action')
+                st.markdown('Options')
 
                 #### remove missing ###############################################################
                 if st.button('Remove null values'):        
@@ -468,7 +480,7 @@ if main_options == 'Single Column Analysis':
             # with img:
             #     st.info('No missing values in the column')
             with repair_options:
-                st.write('Action')
+                st.write('Options')
                 #### remove column ##############################################
                 if st.button("Remove column"):
 
@@ -550,7 +562,7 @@ if main_options == 'Single Column Analysis':
         ### column holding remedy buttons 
         with repair_options:
             compute_datatype()
-            st.write('Action')
+            st.write('Options')
 
             if len(uniq_list_dtypes) > 1:
 
@@ -624,7 +636,7 @@ if main_options == 'Single Column Analysis':
                 with box_plt.container():
                     box_plotter(dataset)
                 
-                #### suggestion area ------------------------
+                #### suggestion area 
                 st.write('Key statistics')
                 alpha = 0.05
                 stat, p = shapiro(dataset[column_name])
@@ -635,7 +647,7 @@ if main_options == 'Single Column Analysis':
 
             ### column holding repair methods
             with repair_options:
-                st.write('Action')
+                st.write('Options')
 
                 ##### show dataframe of key values
                 def show_outlier_df(lower, upper):
@@ -705,7 +717,7 @@ if main_options == 'Single Column Analysis':
                         st.session_state.hist_holder.append(f'{len(outliers)} outliers removed from {column_name} using IQR')
 
                 #### repair outliers using user inpute
-                with st.expander('User input'):
+                with st.expander('User input', expanded=True):
                     lower = st.number_input("lower bound", min_value=0, step=10)
                     upper = st.number_input("upper bound", min_value=0, step=10)
 
@@ -740,7 +752,7 @@ if main_options == 'Single Column Analysis':
         with repair_options:
             ### show statistics and repair for numeric columns
             if dataset[column_name].dtype == "int64" or dataset[column_name].dtype == "float64":
-                st.write('Action')
+                st.write('Options')
                 #### remove range using user inpute
                 with st.expander('Remove range of values'):
                     lower = st.number_input("lower bound", min_value=0, step=10)
@@ -764,7 +776,7 @@ if main_options == 'Single Column Analysis':
                             st.warning(f'There are no values between {lower} and {upper} in {column_name}')
                 
             else:
-                st.write('Action')
+                st.write('Options')
                 #### remove values of specific classes from column
                 with st.expander('Remove value'):
                     class_name = st.text_input("input class (case sensitive)")
@@ -844,7 +856,7 @@ if main_options == 'Single Column Analysis':
             update_col()
 
         with repair_options:
-            st.write('Action')
+            st.write('Options')
             if st.button('Replace range with mean'):
                 d_copy = dataset.copy(deep=True)
                 append_data(d_copy)
@@ -956,7 +968,7 @@ if main_options == 'Multiple Column Analysis':
 
                     ##### button to drop all missing values
                     with repair_options:
-                        st.write('Action')
+                        st.write('Options')
                         if dataset[select_cols].isnull().sum().sum() != 0:
                             if st.button('Drop all null values'):
 
@@ -1027,7 +1039,7 @@ if main_options == 'Multiple Column Analysis':
                         
                         ###### drop duplicate entries
                         with repair_options:
-                            st.write('Action')
+                            st.write('Options')
                             if st.button('Drop duplicates'):
 
                                 d_copy = dataset.copy(deep=True)
@@ -1089,14 +1101,15 @@ if main_options == 'Multiple Column Analysis':
                 with repair_options:
                     y_data = st.selectbox('Select Y values (numeric)', dataset.select_dtypes(include=[np.number]).columns)
                     x_data = st.selectbox('Select X values (categorical)', dataset.select_dtypes(exclude=[np.number]).columns)
-                    color_by = [None] + list(dataset.columns)
+                    mean_data = dataset.groupby([x_data]).mean().reset_index()
+                    color_by = [None] + list(mean_data.columns)
                     bar_col = st.selectbox('Select column to colour plot by', color_by)
                     
                 #### make bar plot
                 with img:
                     #@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
                     def multi_hist_plotter():
-                        fig = px.bar(data_frame=dataset.groupby([x_data]).mean().reset_index(), x=x_data, y=y_data, color=bar_col)
+                        fig = px.bar(data_frame=mean_data, x=x_data, y=y_data, color=bar_col)
                         fig.update_layout(margin=dict(t=30, b=0, l=0, r=20), yaxis_title=f"average {y_data}",
                                     title_text=f'Distribution of {y_data} by {x_data}', title_x=0.3)
                         return st.plotly_chart(fig, use_container_width=True)
@@ -1253,10 +1266,6 @@ if main_options == 'Multiple Column Analysis':
 data = dataset.to_csv(index=False).encode('utf-8')
 st.sidebar.header('')
 st.sidebar.header('')
-st.sidebar.header('')
-st.sidebar.header('')
-st.sidebar.header('')
-
 
 st.sidebar.download_button(
     label="Download data as CSV ⬇️",
