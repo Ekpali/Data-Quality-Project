@@ -84,6 +84,10 @@ st.set_page_config(layout = "wide")
 # Main heading
 st.title('Data Profiling and Quality Analysis Tool')
 
+intro_Section = st.empty()
+
+
+
 # into page function
 def intro():
     st.subheader('Welcome to the data exploration, quality analysis and repair tool 🕵')
@@ -141,6 +145,8 @@ data_holder = st.empty()
 def format_uploader():
     ''' This function converts dataset to dataframe'''
     if selected_file is not None:
+        with intro_Section.container():
+            st.empty()
         
         if "csv" in selected_file.name:
             df = pd.read_csv(selected_file)
@@ -154,7 +160,8 @@ def format_uploader():
         st.sidebar.info("Please upload a valid xlsx, csv or txt file")
         with data_holder.container():
             st.empty()
-        intro()
+        with intro_Section.container():
+            intro()
         # st.legacy_caching.caching.clear_cache()
         # for hist_holder in st.session_state.keys():
         #     del st.session_state[hist_holder]
