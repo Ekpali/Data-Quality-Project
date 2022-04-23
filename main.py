@@ -1151,16 +1151,16 @@ if main_options == 'Multiple Column Analysis':
                 with repair_options:
                     y_data = st.selectbox('Select Y values (numeric)', dataset.select_dtypes(include=[np.number]).columns)
                     x_data = st.selectbox('Select X values (categorical)', dataset.select_dtypes(exclude=[np.number]).columns)
-                    mean_data = dataset.groupby([x_data]).mean().reset_index()
-                    color_by = [None] + list(mean_data.columns)
+                    #mean_data = dataset.groupby([x_data]).mean().reset_index()
+                    color_by = [None] + list(dataset.columns)
                     bar_col = st.selectbox('Select column to colour plot by', color_by)
                     
                 #### make bar plot
                 with img:
                     #@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
                     def multi_hist_plotter():
-                        fig = px.bar(data_frame=mean_data, x=x_data, y=y_data, color=bar_col)
-                        fig.update_layout(margin=dict(t=30, b=0, l=0, r=20), yaxis_title=f"average {y_data}",
+                        fig = px.histogram(data_frame=dataset, x=x_data, y=y_data, color=bar_col)
+                        fig.update_layout(margin=dict(t=30, b=0, l=0, r=20), yaxis_title=f"Sum of {y_data}",
                                     title_text=f'Distribution of {y_data} by {x_data}', title_x=0.3)
                         return st.plotly_chart(fig, use_container_width=True)
 
